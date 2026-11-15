@@ -25,6 +25,16 @@ export function labelSize(name: string, widthPx: number, heightPx: number, areaP
   return size >= LABEL_MIN_PX && fits ? size : 0;
 }
 
+/** Atoms drawn together as one historical entity: its internal borders and member names are left out. */
+export interface Merge {
+  /** Entity index per atom, or -1. */
+  era: Int16Array;
+  /** Per vertex, the atom across the edge to the next vertex, or -1 on coast. */
+  other: Int32Array;
+  /** Entity names by index. */
+  names: string[];
+}
+
 export function draw(
   ctx: CanvasRenderingContext2D,
   geo: Geometry,
@@ -33,6 +43,7 @@ export function draw(
   camera: Camera,
   active: number,
   missing: Uint8Array | undefined,
+  merge: Merge | undefined,
   ink: Ink,
   layer: { alpha: number; clear: boolean } = { alpha: 1, clear: true },
 ): void {
@@ -49,22 +60,43 @@ export function draw(
   ctx.lineJoin = "round";
   ctx.strokeStyle = ink.ink;
 
+  const eraOf = (atom: number): number => merge?.era[atom] ?? -1;
+  const activeEra = eraOf(active);
   const all = new Path2D();
   const lifted = new Path2D();
   const empty = new Path2D();
+  const ring: number[] = [];
   for (let k = 0; k < geo.ringAtom.length; k++) {
     const atom = geo.ringAtom[k] ?? 0;
-    const paths = [atom === active ? lifted : all];
-    if (missing?.[atom]) paths.push(empty);
+    const era = eraOf(atom);
+    const outline = atom === active || (era >= 0 && era === activeEra) ? lifted : all;
     const [s, e] = [geo.ringStart[k] ?? 0, geo.ringStart[k + 1] ?? 0];
+    ring.length = 0;
     for (let i = s; i < e; i++) {
       const [x, y] = camera.toScreen(points[2 * i] ?? 0, points[2 * i + 1] ?? 0);
-      for (const path of paths) {
-        if (i === s) path.moveTo(x, y);
-        else path.lineTo(x, y);
-      }
+      ring.push(x, y);
     }
-    for (const path of paths) path.closePath();
+    const n = e - s;
+    if (missing?.[atom]) {
+      for (let i = 0; i < n; i++) {
+        if (i === 0) empty.moveTo(ring[0] ?? 0, ring[1] ?? 0);
+        else empty.lineTo(ring[2 * i] ?? 0, ring[2 * i + 1] ?? 0);
+      }
+      empty.closePath();
+    }
+    // Edge by edge, so a border between two members of one entity can be left undrawn.
+    let down = false;
+    for (let i = 0; i < n; i++) {
+      const across = merge ? (merge.other[s + i] ?? -1) : -1;
+      if (era >= 0 && across >= 0 && eraOf(across) === era) {
+        down = false;
+        continue;
+      }
+      const j = (i + 1) % n;
+      if (!down) outline.moveTo(ring[2 * i] ?? 0, ring[2 * i + 1] ?? 0);
+      outline.lineTo(ring[2 * j] ?? 0, ring[2 * j + 1] ?? 0);
+      down = true;
+    }
   }
   if (missing) {
     ctx.fillStyle = hatch(ctx, ink.soft, dpr);
@@ -80,8 +112,20 @@ export function draw(
   ctx.lineWidth = 3;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
+  // An entity is named once, on its largest member.
+  const largest = new Map<number, number>();
   shapes.forEach((shape, i) => {
-    const name = geo.atoms[i]?.name ?? "";
+    const era = eraOf(i);
+    if (era < 0) return;
+    const best = largest.get(era);
+    if (best === undefined || shape.anchor.area > (shapes[best]?.anchor.area ?? 0)) {
+      largest.set(era, i);
+    }
+  });
+  shapes.forEach((shape, i) => {
+    const era = eraOf(i);
+    if (era >= 0 && largest.get(era) !== i) return;
+    const name = (era >= 0 ? merge?.names[era] : geo.atoms[i]?.name) ?? "";
     const { anchor } = shape;
     const k = camera.k;
     const size = labelSize(name, anchor.width * k, anchor.height * k, anchor.area * k * k);
