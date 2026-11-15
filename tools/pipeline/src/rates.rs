@@ -31,10 +31,10 @@ const SUBGROUP_WORDS: [&str; 17] = [
 ];
 
 /// A name or definition containing one of these describes a rate no product can turn back into a count.
-const STANDARDIZED: [&str; 3] = ["age-standardi", "age standardi", "age-adjust"];
+const STANDARDIZED: [&str; 4] = ["age-standardi", "age standardi", "age-adjust", "age adjust"];
 
 /// Name fragments of a change over time.
-const CHANGES: [&str; 3] = ["growth", "change in", "annual %"];
+const CHANGES: [&str; 4] = ["growth", "change in", "changes in", "annual %"];
 
 /// Titles whose product is a sum of two flows.
 const FLOW_TITLES: [(&str, &str); 3] = [

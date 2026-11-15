@@ -8,7 +8,13 @@ use std::collections::{HashMap, HashSet};
 /// Lowercases, collapses spaces, and spells "USD" as "US$".
 pub fn norm_unit(unit: &str) -> String {
     let unit = unit.to_lowercase().replace("usd", "us$");
-    unit.split_whitespace().collect::<Vec<_>>().join(" ")
+    // WDI writes both "BoP, current US$" and "current US$, BoP".
+    let mut parts: Vec<String> = unit
+        .split(',')
+        .map(|part| part.split_whitespace().collect::<Vec<_>>().join(" "))
+        .collect();
+    parts.sort();
+    parts.join(", ")
 }
 
 /// A native total with the same title wins when its unit matches or is not stated.
@@ -94,6 +100,15 @@ pub fn check_slugs(all: &[Indicator]) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_unit_is_the_same_whatever_order_its_parts_come_in() {
+        assert_eq!(
+            norm_unit("current US$, BoP"),
+            norm_unit("BoP,  current USD")
+        );
+        assert_ne!(norm_unit("current US$"), norm_unit("constant 2015 US$"));
+    }
+
     use super::*;
     use crate::format::Series;
     use crate::rates::plan;
