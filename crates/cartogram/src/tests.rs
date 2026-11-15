@@ -136,7 +136,8 @@ fn a_notch_that_crosses_itself_is_pulled_to_the_crossing() {
     let c = single(pts.clone());
     assert_eq!(proper_crossings(&pts), 1);
     let mut out = pts.clone();
-    let moved = c.untangle(&mut out);
+    let (moved, left) = c.untangle(&mut out);
+    assert_eq!(left, 0);
     assert_eq!(proper_crossings(&out), 0);
     assert_eq!(moved, 2);
     let (before, after) = (ring_area(&pts).abs(), ring_area(&out).abs());
@@ -149,7 +150,7 @@ fn untangling_twice_changes_nothing_more() {
     let mut once = c.points().to_vec();
     c.untangle(&mut once);
     let mut twice = once.clone();
-    assert_eq!(c.untangle(&mut twice), 0);
+    assert_eq!(c.untangle(&mut twice), (0, 0));
     assert_eq!(once, twice);
 }
 
@@ -179,7 +180,7 @@ fn a_loop_on_a_shared_border_keeps_both_sides_identical() {
     assert_eq!(proper_crossings(&pts[..2 * la]), 1);
     assert_eq!(proper_crossings(&pts[2 * la..]), 1);
     let mut out = pts.clone();
-    assert!(c.untangle(&mut out) > 0);
+    assert!(c.untangle(&mut out).0 > 0);
     assert_eq!(proper_crossings(&out[..2 * la]), 0);
     assert_eq!(proper_crossings(&out[2 * la..]), 0);
     let n = pts.len() / 2;
@@ -199,7 +200,7 @@ fn a_loop_on_a_shared_border_keeps_both_sides_identical() {
 fn clean_rings_and_solves_are_returned_untouched() {
     let c = square(8, 8);
     let mut out = c.points().to_vec();
-    assert_eq!(c.untangle(&mut out), 0);
+    assert_eq!(c.untangle(&mut out), (0, 0));
     assert_eq!(out, c.points());
     let (solved, stats) = c.solve(&[1.0], &Options::default()).unwrap();
     assert_eq!(stats.collapsed, 0);
@@ -217,6 +218,92 @@ fn a_loop_longer_than_the_look_ahead_is_left_alone() {
     let c = single(pts.clone());
     assert_eq!(proper_crossings(&pts), 1);
     let mut out = pts.clone();
-    assert_eq!(c.untangle(&mut out), 0);
+    assert_eq!(c.untangle(&mut out), (0, 0));
     assert_eq!(out, pts);
+}
+
+#[test]
+fn the_shorter_arc_of_a_loop_is_the_one_collapsed() {
+    use std::f64::consts::PI;
+    let pts: Vec<f64> = (0..50)
+        .flat_map(|k| {
+            let r = (k + 50 - 41) % 50;
+            let t = if r < 12 {
+                PI / 2.0 + PI / 24.0 + r as f64 * PI / 12.0
+            } else {
+                1.5 * PI + PI / 24.0 + (r - 12) as f64 * 11.0 * PI / 444.0
+            };
+            [30.0 + 25.0 * t.cos(), 30.0 + 25.0 * t.sin() * t.cos()]
+        })
+        .collect();
+    let c = single(pts.clone());
+    assert_eq!(proper_crossings(&pts), 1);
+    let mut out = pts.clone();
+    let (moved, left) = c.untangle(&mut out);
+    assert_eq!((moved, left), (12, 0));
+    for k in 0..50 {
+        let short = k >= 41 || k <= 2;
+        assert_eq!(
+            out[2 * k..2 * k + 2] != pts[2 * k..2 * k + 2],
+            short,
+            "vertex {k}"
+        );
+    }
+}
+
+#[test]
+fn a_region_that_lost_all_its_area_counts_as_a_full_error() {
+    assert_eq!(errors(&[0.0, 4.0], &[2.0, 4.0]), (1.0, 1.0 * 2.0 / 6.0));
+    assert_eq!(errors(&[0.0, 4.0], &[0.0, 4.0]), (0.0, 0.0));
+}
+
+#[test]
+fn a_collapse_that_would_empty_another_ring_is_skipped() {
+    let a: [(f64, f64); 10] = [
+        (2.0, 2.0),
+        (18.0, 2.0),
+        (18.0, 18.0),
+        (14.0, 18.0),
+        (8.0, 18.0),
+        (9.0, 20.0),
+        (10.0, 19.0),
+        (11.0, 16.0),
+        (6.0, 18.0),
+        (2.0, 18.0),
+    ];
+    let islet = [a[4], a[5], a[6]];
+    let pts: Vec<f64> = a.iter().chain(&islet).flat_map(|p| [p.0, p.1]).collect();
+    let c = Cartogram::new(24, 24, 2, vec![0, 10, 13], vec![0, 1], pts.clone()).unwrap();
+    assert_eq!(proper_crossings(&pts[..20]), 1);
+    let mut out = pts.clone();
+    assert_eq!(c.untangle(&mut out), (0, 1));
+    assert_eq!(out, pts);
+}
+
+#[test]
+fn a_solve_that_folds_comes_back_untangled() {
+    let (k, cw, ch) = (3usize, 16.0, 8.0);
+    let mut starts = vec![0];
+    let mut pts = Vec::new();
+    for r in 0..k * k {
+        let (a, c) = (8.0 + (r % k) as f64 * cw, 4.0 + (r / k) as f64 * ch);
+        let corners = [(a, c), (a + cw, c), (a + cw, c + ch), (a, c + ch)];
+        for q in 0..4 {
+            let (p, e) = (corners[q], corners[(q + 1) % 4]);
+            let steps = ((e.0 - p.0).abs().max((e.1 - p.1).abs()) / 0.5) as usize;
+            for s in 0..steps {
+                let t = s as f64 / steps as f64;
+                pts.extend([p.0 + t * (e.0 - p.0), p.1 + t * (e.1 - p.1)]);
+            }
+        }
+        starts.push(pts.len() / 2);
+    }
+    let c = Cartogram::new(64, 32, k * k, starts.clone(), (0..k * k).collect(), pts).unwrap();
+    let values = [8.0, 2.0, 4920.0, 46099.0, 1972.0, 584.0, 231.0, 436.0, 57.0];
+    let (out, stats) = c.solve(&values, &Options::default()).unwrap();
+    assert!(stats.collapsed > 0);
+    assert_eq!(stats.crossings, 0);
+    for w in starts.windows(2) {
+        assert_eq!(proper_crossings(&out[2 * w[0]..2 * w[1]]), 0);
+    }
 }

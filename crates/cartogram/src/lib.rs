@@ -51,6 +51,8 @@ pub struct Stats {
     pub truncated: bool,
     /// Vertices the untangling pass moved off the flow's result.
     pub collapsed: usize,
+    /// Crossings between edges within the untangling reach that the pass left.
+    pub crossings: usize,
 }
 
 const MAX_STEPS: usize = 2000;
@@ -107,7 +109,7 @@ impl Cartogram {
         if pts.iter().any(|v| !v.is_finite()) {
             return Err("points must be finite".into());
         }
-        let groups = Groups::new(&pts);
+        let groups = Groups::new(&pts, &ring_start);
         let mut planner = DctPlanner::new();
         Ok(Cartogram {
             lx,
@@ -226,6 +228,7 @@ impl Cartogram {
             mean_err: f64::MAX,
             truncated: false,
             collapsed: 0,
+            crossings: 0,
         };
         for it in 0..opt.max_iter {
             let area = self.areas(&pts);
@@ -255,7 +258,7 @@ impl Cartogram {
             stats.truncated |= !finished;
             stats.iters = it + 1;
         }
-        stats.collapsed = self.untangle(&mut pts);
+        (stats.collapsed, stats.crossings) = self.untangle(&mut pts);
         let area = self.areas(&pts);
         let (mx, mean) = errors(&area, &target);
         stats.max_err = mx;
@@ -449,11 +452,10 @@ fn errors(area: &[f64], target: &[f64]) -> (f64, f64) {
     let mut mx: f64 = 0.0;
     let mut mean = 0.0;
     for (a, t) in area.iter().zip(target) {
-        // A region with no area has no vertices the flow could move apart.
-        if *a <= 0.0 {
+        if *t <= 0.0 {
             continue;
         }
-        let e = (a - t).abs() / t;
+        let e = if *a <= 0.0 { 1.0 } else { (a - t).abs() / t };
         mx = mx.max(e);
         mean += e * t / total;
     }
