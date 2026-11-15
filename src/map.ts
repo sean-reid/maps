@@ -1,5 +1,6 @@
 import { Camera } from "./camera.ts";
-import { draw, type Ink } from "./draw.ts";
+import { draw, type Ink, type Merge } from "./draw.ts";
+import { ERAS, neighbours } from "./eras.ts";
 import type { Geometry } from "./geometry.ts";
 import { atomAt, bounds, type Box, measure, type Shape } from "./shapes.ts";
 import { type Feel, FOLLOW, groupVertices, leadByChange, Springs } from "./spring.ts";
@@ -18,6 +19,8 @@ export interface MapView {
   jumpTo(points: Float64Array): void;
   /** Marks atoms to draw hatched, one byte per atom. */
   setMissing(missing: Uint8Array | undefined): void;
+  /** Says which atoms are drawn together as one historical entity: an index into `ERAS` per atom, or -1. */
+  setEras(era: Int16Array | undefined): void;
   shapes(): Shape[];
   active(): number;
 }
@@ -42,6 +45,9 @@ export function createMap(
   let moving = false;
   const arrived: (() => void)[] = [];
   let missing: Uint8Array | undefined;
+  let merge: Merge | undefined;
+  const other = neighbours(geo);
+  const names = ERAS.map((era) => era.name);
   const camera = new Camera();
   // The box the camera frames. It follows the solved map, which can reach well past the plain one.
   let view = bounds(shapes);
@@ -110,14 +116,14 @@ export function createMap(
       const fade = ghost ? Math.min(1, (now - ghost.from) / FADE_MS) : 1;
       if (ghost && fade < 1) {
         const under = { alpha: 1 - fade, clear: true };
-        draw(ctx, geo, ghost.points, ghost.shapes, camera, active, missing, ink(), under);
-        draw(ctx, geo, points, shapes, camera, active, missing, ink(), {
+        draw(ctx, geo, ghost.points, ghost.shapes, camera, active, missing, merge, ink(), under);
+        draw(ctx, geo, points, shapes, camera, active, missing, merge, ink(), {
           alpha: fade,
           clear: false,
         });
       } else {
         ghost = undefined;
-        draw(ctx, geo, points, shapes, camera, active, missing, ink());
+        draw(ctx, geo, points, shapes, camera, active, missing, merge, ink());
       }
       if (moving || ghost || view !== goalView) {
         paint();
@@ -305,6 +311,10 @@ export function createMap(
     },
     setMissing(next) {
       missing = next;
+      paint();
+    },
+    setEras(era) {
+      merge = era?.some((e) => e >= 0) ? { era, other, names } : undefined;
       paint();
     },
     shapes: () => shapes,

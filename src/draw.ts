@@ -25,6 +25,16 @@ export function labelSize(name: string, widthPx: number, heightPx: number, areaP
   return size >= LABEL_MIN_PX && fits ? size : 0;
 }
 
+/** Atoms drawn together as one historical entity: its internal borders and member names are left out. */
+export interface Merge {
+  /** Entity index per atom, or -1. */
+  era: Int16Array;
+  /** Per vertex, the atom across the edge to the next vertex, or -1 on coast. */
+  other: Int32Array;
+  /** Entity names by index. */
+  names: string[];
+}
+
 export function draw(
   ctx: CanvasRenderingContext2D,
   geo: Geometry,
@@ -33,6 +43,7 @@ export function draw(
   camera: Camera,
   active: number,
   missing: Uint8Array | undefined,
+  merge: Merge | undefined,
   ink: Ink,
   layer: { alpha: number; clear: boolean } = { alpha: 1, clear: true },
 ): void {
@@ -49,22 +60,42 @@ export function draw(
   ctx.lineJoin = "round";
   ctx.strokeStyle = ink.ink;
 
+  const eraOf = (atom: number): number => merge?.era[atom] ?? -1;
+  const activeEra = eraOf(active);
   const all = new Path2D();
   const lifted = new Path2D();
   const empty = new Path2D();
+  const ring: number[] = [];
   for (let k = 0; k < geo.ringAtom.length; k++) {
     const atom = geo.ringAtom[k] ?? 0;
-    const paths = [atom === active ? lifted : all];
-    if (missing?.[atom]) paths.push(empty);
+    const era = eraOf(atom);
+    const outline = atom === active || (era >= 0 && era === activeEra) ? lifted : all;
     const [s, e] = [geo.ringStart[k] ?? 0, geo.ringStart[k + 1] ?? 0];
+    ring.length = 0;
     for (let i = s; i < e; i++) {
       const [x, y] = camera.toScreen(points[2 * i] ?? 0, points[2 * i + 1] ?? 0);
-      for (const path of paths) {
-        if (i === s) path.moveTo(x, y);
-        else path.lineTo(x, y);
+      ring.push(x, y);
+    }
+    const n = e - s;
+    if (missing?.[atom]) {
+      for (let i = 0; i < n; i++) {
+        if (i === 0) empty.moveTo(ring[0] ?? 0, ring[1] ?? 0);
+        else empty.lineTo(ring[2 * i] ?? 0, ring[2 * i + 1] ?? 0);
+      }
+      empty.closePath();
+    }
+    const hidden = (i: number): boolean => {
+      const across = merge ? (merge.other[s + i] ?? -1) : -1;
+      return era >= 0 && across >= 0 && eraOf(across) === era;
+    };
+    for (const run of strokeRuns(n, hidden)) {
+      outline.moveTo(ring[2 * run.from] ?? 0, ring[2 * run.from + 1] ?? 0);
+      for (let step = 1; step <= run.edges; step++) {
+        const j = (run.from + step) % n;
+        if (run.closed && step === run.edges) outline.closePath();
+        else outline.lineTo(ring[2 * j] ?? 0, ring[2 * j + 1] ?? 0);
       }
     }
-    for (const path of paths) path.closePath();
   }
   if (missing) {
     ctx.fillStyle = hatch(ctx, ink.soft, dpr);
@@ -80,18 +111,61 @@ export function draw(
   ctx.lineWidth = 3;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  shapes.forEach((shape, i) => {
-    const name = geo.atoms[i]?.name ?? "";
-    const { anchor } = shape;
+  const label = (i: number, name: string): { size: number; x: number; y: number } | undefined => {
+    const anchor = shapes[i]?.anchor;
+    if (!anchor) return undefined;
     const k = camera.k;
     const size = labelSize(name, anchor.width * k, anchor.height * k, anchor.area * k * k);
-    if (!size) return;
     const [x, y] = camera.toScreen(anchor.x, anchor.y);
-    if (x < 0 || y < 0 || x > width / dpr || y > height / dpr) return;
-    ctx.font = `500 ${size}px ${ink.font}`;
-    ctx.strokeText(name, x, y);
-    ctx.fillText(name, x, y);
+    if (!size || x < 0 || y < 0 || x > width / dpr || y > height / dpr) return undefined;
+    return { size, x, y };
+  };
+  // An entity is named once, on the largest member that has room for the name.
+  const named = new Map<number, number>();
+  shapes.forEach((shape, i) => {
+    const era = eraOf(i);
+    if (era < 0 || !label(i, merge?.names[era] ?? "")) return;
+    const best = named.get(era);
+    if (best === undefined || shape.anchor.area > (shapes[best]?.anchor.area ?? 0)) {
+      named.set(era, i);
+    }
   });
+  shapes.forEach((_, i) => {
+    const era = eraOf(i);
+    if (era >= 0 && named.get(era) !== i) return;
+    const name = (era >= 0 ? merge?.names[era] : geo.atoms[i]?.name) ?? "";
+    const at = label(i, name);
+    if (!at) return;
+    ctx.font = `500 ${at.size}px ${ink.font}`;
+    ctx.strokeText(name, at.x, at.y);
+    ctx.fillText(name, at.x, at.y);
+  });
+}
+
+/**
+ * The runs of consecutive drawn edges around a ring of `n` vertices, where edge i joins
+ * vertex i to the next. With nothing hidden the ring is one closed run. Otherwise each run
+ * starts just after a hidden edge, so the wrap from the last vertex to the first stays joined.
+ */
+export function strokeRuns(
+  n: number,
+  hidden: (edge: number) => boolean,
+): { from: number; edges: number; closed: boolean }[] {
+  let gap = -1;
+  for (let i = 0; i < n && gap < 0; i++) if (hidden(i)) gap = i;
+  if (gap < 0) return n > 0 ? [{ from: 0, edges: n, closed: true }] : [];
+  const runs: { from: number; edges: number; closed: boolean }[] = [];
+  let edges = 0;
+  for (let step = 1; step <= n; step++) {
+    const i = (gap + step) % n;
+    if (hidden(i)) {
+      if (edges > 0) runs.push({ from: (i - edges + n) % n, edges, closed: false });
+      edges = 0;
+    } else {
+      edges++;
+    }
+  }
+  return runs;
 }
 
 const patterns = new Map<string, CanvasPattern | string>();

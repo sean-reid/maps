@@ -2,6 +2,9 @@ use crate::Result;
 use std::collections::HashMap;
 
 const TABLE: &str = include_str!("../../data/m49.csv");
+/// Reporting units that no longer exist. The page draws each as its member countries together,
+/// under the code given here; `src/eras.ts` holds the members.
+const FORMER: &str = include_str!("../../data/former.csv");
 /// FAO area codes from here up are regions, income groups, and other aggregates.
 const FIRST_AGGREGATE: u32 = 5000;
 /// "China" (351) adds mainland, Hong Kong, Macao, and Taiwan, which have their own rows.
@@ -45,6 +48,9 @@ impl Areas {
         if code >= FIRST_AGGREGATE || COMBINED.contains(&code) {
             return Area::Aggregate;
         }
+        if let Some(former) = former(code) {
+            return Area::Country(former.to_string());
+        }
         match self.0.get(m49.trim().trim_start_matches('\'')) {
             Some(iso) => Area::Country(iso.clone()),
             None => Area::Unmapped,
@@ -52,9 +58,34 @@ impl Areas {
     }
 }
 
+/// The code a former reporting unit is filed under, by FAO area code.
+fn former(area: u32) -> Option<&'static str> {
+    FORMER.lines().skip(1).find_map(|line| {
+        let mut cells = line.split(',');
+        let matches = cells.next()?.parse::<u32>().ok()? == area;
+        matches.then(|| cells.next()).flatten()
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn former_reporting_units_keep_a_code_of_their_own() {
+        let areas = Areas::embedded().unwrap();
+        assert_eq!(areas.classify("228", "'810"), Area::Country("SUN".into()));
+        assert_eq!(areas.classify("248", "'890"), Area::Country("YUG".into()));
+        assert_eq!(areas.classify("206", "'736"), Area::Country("SDF".into()));
+        for line in FORMER.lines().skip(1) {
+            let code = line.split(',').nth(1).unwrap();
+            assert_eq!(code.len(), 3, "{line}");
+            assert!(
+                !TABLE.contains(&format!(",{code}")),
+                "{code} is a country code"
+            );
+        }
+    }
 
     #[test]
     fn embedded_table_maps_known_codes() {
@@ -69,7 +100,7 @@ mod tests {
         let areas = Areas::embedded().unwrap();
         assert_eq!(areas.classify("5000", "'001"), Area::Aggregate);
         assert_eq!(areas.classify("351", "'159"), Area::Aggregate);
-        assert_eq!(areas.classify("228", "'810"), Area::Unmapped);
+        assert_eq!(areas.classify("184", "'175"), Area::Unmapped);
         assert_eq!(areas.classify("420", "'202"), Area::Unmapped);
     }
 

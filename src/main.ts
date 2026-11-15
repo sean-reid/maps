@@ -1,7 +1,9 @@
 import { loadCatalogue, loadSeries, type Series, type SeriesMeta } from "./data.ts";
 import { layout, type Topology } from "./geometry.ts";
+import { ERAS, withEras } from "./eras.ts";
 import { createMap } from "./map.ts";
 import { createSearchBox } from "./searchbox.ts";
+import { measure } from "./shapes.ts";
 import { SolverClient } from "./solver/client.ts";
 import { BOUNCE, type Feel, FOLLOW } from "./spring.ts";
 import { coveredYears, rowsFor, valuesAt } from "./values.ts";
@@ -30,6 +32,9 @@ const searchList = need<HTMLElement>("#results");
 /** What the map currently shows: a value per atom and how to word it. */
 interface Frame {
   values: Float64Array;
+  /** Index into `ERAS` per atom, or -1, and each active era's own figure. */
+  era: Int16Array;
+  totals: Map<number, number>;
   total: number;
   unit: string;
   whole: string;
@@ -49,15 +54,22 @@ async function start(): Promise<void> {
   if (!res.headers.get("content-type")?.includes("json")) throw new Error("the map did not load");
   const geo = layout((await res.json()) as Topology);
   const shown: { frame?: Frame } = {};
+  // Land area on the plain map, by which a historical entity's figure is shared among its members.
+  const land = measure(geo, geo.points).map((shape) => shape.area);
 
   const map = createMap(canvas, geo, (atom, announce) => {
     readout.setAttribute("aria-live", announce ? "polite" : "off");
     readout.replaceChildren();
     const { frame } = shown;
-    const value = frame ? frame.values[atom] : map.shapes()[atom]?.area;
+    const era = frame?.era[atom] ?? -1;
+    const value = frame
+      ? era >= 0
+        ? frame.totals.get(era)
+        : frame.values[atom]
+      : map.shapes()[atom]?.area;
     if (atom < 0 || value === undefined) return;
     const name = document.createElement("b");
-    name.textContent = geo.atoms[atom]?.name ?? "";
+    name.textContent = (era >= 0 ? ERAS[era]?.name : geo.atoms[atom]?.name) ?? "";
     readout.append(name);
     const soft = (text: string): HTMLElement => {
       const el = document.createElement("span");
@@ -135,16 +147,25 @@ async function start(): Promise<void> {
     year = to;
     yearInput.value = String(to);
     yearLabel.textContent = String(to);
-    const values = valuesAt(series, rows, to);
+    const { values, era, totals } = withEras(
+      series,
+      geo.atoms,
+      land,
+      to,
+      valuesAt(series, rows, to),
+    );
     const points = await solver.solve(values);
     if (!points || open?.meta !== meta) return;
     shown.frame = {
       values,
+      era,
+      totals,
       total: values.reduce((sum, v) => sum + (Number.isFinite(v) ? v : 0), 0),
       unit: meta.unit,
       whole: "of the world",
     };
     map.setMissing(Uint8Array.from(values, (v) => (Number.isFinite(v) ? 0 : 1)));
+    map.setEras(era);
     const root = document.documentElement;
     root.dataset.series = meta.slug;
     root.dataset.year = String(to);
