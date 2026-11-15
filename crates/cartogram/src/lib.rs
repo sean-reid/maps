@@ -40,15 +40,18 @@ impl Default for Options {
 pub struct Stats {
     pub iters: usize,
     pub steps: usize,
-    /// Largest relative area error over regions.
+    /// Largest relative area error over regions. Regions smaller than a grid cell keep this high.
     pub max_err: f64,
     /// Relative area error weighted by target area.
     pub mean_err: f64,
-    /// An advection hit its step cap before the flow finished.
+    /// An advection hit its step cap before the flow finished. False says nothing about accuracy.
     pub truncated: bool,
 }
 
 const MAX_STEPS: usize = 2000;
+/// How far one pass may ask a region to grow or shrink. A region smaller than a cell can be
+/// thousands of times short of its target, and one such cell would set the pace for every vertex.
+const MAX_DENSITY: f64 = 30.0;
 
 struct Flow<'a> {
     rho: &'a [f64],
@@ -226,7 +229,7 @@ impl Cartogram {
             let dens: Vec<f64> = target
                 .iter()
                 .zip(&area)
-                .map(|(t, a)| t / a.max(1e-9))
+                .map(|(t, a)| (t / a.max(1e-9)).clamp(1.0 / MAX_DENSITY, MAX_DENSITY))
                 .collect();
             self.rasterize(&pts, &dens, &mut rho);
             let sigma = opt.blur0 * 0.5f64.powi((it + skip_blur).min(64) as i32);

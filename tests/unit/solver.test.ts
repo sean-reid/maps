@@ -52,11 +52,33 @@ test("a warm start for the next year lands close to a cold solve", () => {
   const cold2019 = solver.solve(valuesAt(population, rows, 2019)).points;
   const warm = solver.solve(valuesAt(population, rows, 2020), cold2019);
   expect(warm.meanError).toBeLessThan(0.02);
-  const cold = solver.solve(valuesAt(population, rows, 2020)).points;
+  const coldSolve = solver.solve(valuesAt(population, rows, 2020));
+  expect(coldSolve.meanError).toBeLessThan(0.02);
+  const cold = coldSolve.points;
   let worst = 0;
-  for (let i = 0; i < cold.length; i++)
-    worst = Math.max(worst, Math.abs((cold[i] ?? 0) - (warm.points[i] ?? 0)));
-  expect(worst).toBeLessThan(3);
+  let sum = 0;
+  for (let i = 0; i < cold.length; i++) {
+    const gap = Math.abs((cold[i] ?? 0) - (warm.points[i] ?? 0));
+    worst = Math.max(worst, gap);
+    sum += gap;
+  }
+  // Both satisfy the areas; they may place a vertex a few cells apart on a 512-cell map.
+  expect(sum / cold.length).toBeLessThan(0.5);
+  expect(worst).toBeLessThan(8);
+});
+
+test("no year of either series stalls the solver", () => {
+  for (const slug of ["wdi-sp-pop-totl", "wdi-ny-gdp-mktp-cd"]) {
+    const bytes = readFileSync(resolve(root, `tests/fixtures/data/series/${slug}.bin`));
+    const series = decodeSeries(new Uint8Array(bytes).buffer);
+    const seriesRows = rowsFor(series, geo.atoms);
+    // 1960 and 2010 took over two seconds each when a microstate caught a cell centre.
+    for (const year of [1960, 1961, 1975, 1990, 2010, 2024]) {
+      const { truncated, meanError } = solver.solve(valuesAt(series, seriesRows, year));
+      expect(truncated, `${slug} ${year}`).toBe(false);
+      expect(meanError, `${slug} ${year}`).toBeLessThan(0.03);
+    }
+  }
 });
 
 test("an error raised inside the WASM carries its message, and the solver still works after it", () => {

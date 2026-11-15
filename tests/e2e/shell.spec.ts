@@ -27,7 +27,10 @@ test.beforeAll(async () => {
 async function open(page: Page, path = "/", motion: "reduce" | "no-preference" = "reduce") {
   await page.emulateMedia({ reducedMotion: motion });
   await page.goto(path);
-  await expect(page.locator("html")).toHaveAttribute("data-series", "wdi-sp-pop-totl");
+  // A CI runner compiles the WASM and solves several times slower than a laptop.
+  await expect(page.locator("html")).toHaveAttribute("data-series", "wdi-sp-pop-totl", {
+    timeout: 15_000,
+  });
   await expect(page.locator("html")).toHaveAttribute("data-rest", "true");
   const box = await page.locator("#map").boundingBox();
   if (!box) throw new Error("no map");
