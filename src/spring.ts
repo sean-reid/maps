@@ -122,7 +122,9 @@ export function leadByChange(
     r > 0 && Number.isFinite(r) ? Math.abs(Math.log(r)) : 0,
   );
   const most = Math.max(...change, 1e-9);
-  const groups = new Float32Array(Math.max(...group, 0) + 1).fill(1);
+  let count = 0;
+  for (const g of group) count = Math.max(count, g + 1);
+  const groups = new Float32Array(count).fill(1);
   for (let i = 0; i < owner.length; i++) {
     const g = group[i] ?? 0;
     groups[g] = Math.min(groups[g] ?? 1, 1 - (change[owner[i] ?? 0] ?? 0) / most);

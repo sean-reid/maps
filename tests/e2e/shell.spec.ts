@@ -199,6 +199,18 @@ test("play runs to the last year and stops, and pause holds the year", async ({ 
   await expect(page).toHaveURL(/\/wdi-sp-pop-totl\/2025$/);
 });
 
+test("pausing and playing again at once does not run the years twice as fast", async ({ page }) => {
+  await open(page, "/wdi-sp-pop-totl/1960");
+  await page.getByRole("button", { name: "Play" }).click();
+  await page.getByRole("button", { name: "Pause" }).click();
+  await page.getByRole("button", { name: "Play" }).click();
+  const from = Number(await page.locator("#year-label").textContent());
+  await page.waitForTimeout(2100);
+  const to = Number(await page.locator("#year-label").textContent());
+  expect(to - from).toBeGreaterThanOrEqual(3);
+  expect(to - from).toBeLessThanOrEqual(7);
+});
+
 test("with motion on, the map springs and comes to rest where the solver put it", async ({
   page,
 }, info) => {

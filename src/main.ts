@@ -43,6 +43,7 @@ const amount = new Intl.NumberFormat("en", { maximumFractionDigits: 0 });
 async function start(): Promise<void> {
   const res = await fetch("/geo/atoms.json");
   if (!res.ok) throw new Error(`the map did not load (${res.status})`);
+  if (!res.headers.get("content-type")?.includes("json")) throw new Error("the map did not load");
   const geo = layout((await res.json()) as Topology);
   const shown: { frame?: Frame } = {};
 
@@ -119,38 +120,57 @@ async function start(): Promise<void> {
     root.dataset.series = meta.slug;
     root.dataset.year = String(to);
     root.dataset.rest = "false";
-    history.replaceState(null, "", `/${meta.slug}/${to}`);
-    void map.moveTo(points, feel).then(() => {
+    writePath(`/${meta.slug}/${to}`);
+    void map.moveTo(points, feel, feel === BOUNCE).then(() => {
       if (root.dataset.year === String(to)) root.dataset.rest = "true";
     });
   };
 
-  const setPlaying = (on: boolean): void => {
-    playing = on;
-    playButton.textContent = on ? "Pause" : "Play";
+  // Each run of playback holds a number; stopping or restarting retires it, so an old loop cannot resume.
+  let run = 0;
+  const stop = (): void => {
+    run++;
+    playing = false;
+    playButton.textContent = "Play";
   };
 
   const play = async (): Promise<void> => {
-    setPlaying(true);
+    const mine = ++run;
+    playing = true;
+    playButton.textContent = "Pause";
     if (year >= last) await showYear(first, FOLLOW);
-    while (playing && year < last) {
+    while (mine === run && year < last) {
       const tick = new Promise((done) => setTimeout(done, YEAR_MS));
       await showYear(year + 1, FOLLOW);
       await tick;
     }
-    setPlaying(false);
+    if (mine === run) stop();
   };
 
   playButton.addEventListener("click", () => {
-    if (playing) setPlaying(false);
+    if (playing) stop();
     else void play();
   });
   yearInput.addEventListener("input", () => {
-    setPlaying(false);
+    stop();
     void showYear(Number(yearInput.value), FOLLOW);
   });
 
   await showYear(year, BOUNCE);
+}
+
+let pathTimer: ReturnType<typeof setTimeout> | undefined;
+
+/** Puts `path` in the address bar once changes settle; browsers cap how often the history may be written. */
+function writePath(path: string): void {
+  clearTimeout(pathTimer);
+  pathTimer = setTimeout(() => {
+    try {
+      history.replaceState(null, "", path);
+    } catch {
+      // The cap was hit; the next settled change writes the path.
+    }
+  }, 300);
 }
 
 /** Reads `/<slug>` or `/<slug>/<year>`. */

@@ -11,8 +11,9 @@ export interface MapView {
   /**
    * Moves the map to new vertex positions, in the layout of `geo.points`: sprung with `feel`,
    * or cross-faded when the visitor asks for reduced motion. Resolves when the map is at rest there.
+   * `announce` false keeps a picked country's readout from being read out again.
    */
-  moveTo(points: Float64Array, feel: Feel): Promise<void>;
+  moveTo(points: Float64Array, feel: Feel, announce: boolean): Promise<void>;
   /** Marks atoms to draw hatched, one byte per atom. */
   setMissing(missing: Uint8Array | undefined): void;
   shapes(): Shape[];
@@ -229,9 +230,10 @@ export function createMap(
   resize();
 
   return {
-    moveTo(next, feel) {
+    moveTo(next, feel, announce) {
       if (still.matches) {
-        ghost = { points: points.slice(), shapes, from: performance.now() };
+        // A fade already under way keeps its starting picture, so quick changes do not flicker.
+        ghost ??= { points: points.slice(), shapes, from: performance.now() };
         springs.aim(next, feel);
         springs.snap();
         shapes = measure(geo, points);
@@ -242,7 +244,7 @@ export function createMap(
         moving = true;
         last = performance.now();
       }
-      onShow(active, announced);
+      onShow(active, announced && announce);
       paint();
       return new Promise((done) => arrived.push(done));
     },

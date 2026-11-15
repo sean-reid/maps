@@ -25,6 +25,12 @@ export class SolverClient {
         done?.(reply.points);
       }
     };
+    this.worker.onerror = (event) => {
+      this.failed?.(event.message || "the solver stopped");
+      const stuck = [...this.waiting.values()];
+      this.waiting.clear();
+      for (const done of stuck) done(undefined);
+    };
     this.ready = fetch(wasmUrl)
       .then((res) => {
         if (!res.ok) throw new Error(`the solver did not load (${res.status})`);
