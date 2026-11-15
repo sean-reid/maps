@@ -19,13 +19,13 @@ fn strip(n: usize) -> Cartogram {
         }
         starts.push(pts.len() / 2);
     }
-    Cartogram::new(64, 32, n, starts, (0..n).collect(), pts)
+    Cartogram::new(64, 32, n, starts, (0..n).collect(), pts).unwrap()
 }
 
 #[test]
 fn equal_values_on_equal_regions_move_nothing() {
     let c = strip(4);
-    let (out, stats) = c.solve(&[1.0; 4], &Options::default());
+    let (out, stats) = c.solve(&[1.0; 4], &Options::default()).unwrap();
     assert_eq!(stats.iters, 0);
     assert_eq!(out, c.points());
 }
@@ -37,7 +37,7 @@ fn areas_reach_their_share_and_total_is_kept() {
         max_iter: 20,
         ..Options::default()
     };
-    let (out, stats) = c.solve(&[3.0, 1.0], &opt);
+    let (out, stats) = c.solve(&[3.0, 1.0], &opt).unwrap();
     let (before, after) = (c.areas(c.points()), c.areas(&out));
     let total: f64 = before.iter().sum();
     assert!(stats.max_err < 0.02, "max_err {}", stats.max_err);
@@ -48,7 +48,7 @@ fn areas_reach_their_share_and_total_is_kept() {
 #[test]
 fn shared_border_vertices_stay_shared() {
     let c = strip(2);
-    let (out, _) = c.solve(&[5.0, 1.0], &Options::default());
+    let (out, _) = c.solve(&[5.0, 1.0], &Options::default()).unwrap();
     let src = c.points();
     let n = src.len() / 2;
     let mut pairs = 0;
@@ -66,7 +66,9 @@ fn shared_border_vertices_stay_shared() {
 #[test]
 fn rings_keep_their_orientation() {
     let c = strip(4);
-    let (out, _) = c.solve(&[40.0, 1.0, 9.0, 0.0], &Options::default());
+    let (out, _) = c
+        .solve(&[40.0, 1.0, 9.0, 0.0], &Options::default())
+        .unwrap();
     let per = out.len() / 4;
     for r in 0..4 {
         let (a, b) = (
@@ -91,14 +93,28 @@ fn missing_and_tiny_values_get_floors() {
 }
 
 #[test]
+fn all_zero_and_all_missing_values_still_fill_the_total() {
+    let c = strip(4);
+    let total: f64 = c.areas(c.points()).iter().sum();
+    for values in [[0.0; 4], [f64::NAN; 4]] {
+        let t = c.targets(&values, &Options::default());
+        assert!(t.iter().all(|v| v.is_finite() && *v > 0.0));
+        assert!((t.iter().sum::<f64>() - total).abs() < 1e-9);
+        let (out, stats) = c.solve(&values, &Options::default()).unwrap();
+        assert!(out.iter().all(|v| v.is_finite()));
+        assert!(!stats.truncated);
+    }
+}
+
+#[test]
 fn warm_start_from_a_neighbouring_solution_converges_in_fewer_steps() {
     let c = strip(3);
     let opt = Options {
         max_iter: 20,
         ..Options::default()
     };
-    let (base, cold) = c.solve(&[4.0, 2.0, 1.0], &opt);
-    let (_, warm) = c.solve_from(&[4.2, 2.0, 1.0], &opt, &base, 3);
+    let (base, cold) = c.solve(&[4.0, 2.0, 1.0], &opt).unwrap();
+    let (_, warm) = c.solve_from(&[4.2, 2.0, 1.0], &opt, &base, 3).unwrap();
     assert!(warm.max_err < 0.02);
     assert!(
         warm.iters < cold.iters,

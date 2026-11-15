@@ -44,7 +44,11 @@ pub struct Stats {
     pub max_err: f64,
     /// Relative area error weighted by target area.
     pub mean_err: f64,
+    /// An advection hit its step cap before the flow finished.
+    pub truncated: bool,
 }
+
+const MAX_STEPS: usize = 2000;
 
 struct Flow<'a> {
     rho: &'a [f64],
@@ -73,9 +77,29 @@ impl Cartogram {
         ring_start: Vec<usize>,
         ring_region: Vec<usize>,
         pts: Vec<f64>,
-    ) -> Self {
+    ) -> Result<Self, String> {
+        if lx < 2 || ly < 2 {
+            return Err(format!("grid {lx}x{ly} is smaller than 2x2"));
+        }
+        if ring_start.len() != ring_region.len() + 1 || ring_start[0] != 0 {
+            return Err(
+                "ring_start needs one offset per ring plus a sentinel, starting at 0".into(),
+            );
+        }
+        if ring_start.windows(2).any(|w| w[1] < w[0] + 3) {
+            return Err("every ring needs at least 3 points".into());
+        }
+        if pts.len() != 2 * ring_start[ring_start.len() - 1] {
+            return Err("point count does not match the ring offsets".into());
+        }
+        if ring_region.iter().any(|&r| r >= n_regions) {
+            return Err("ring region index out of range".into());
+        }
+        if pts.iter().any(|v| !v.is_finite()) {
+            return Err("points must be finite".into());
+        }
         let mut planner = DctPlanner::new();
-        Cartogram {
+        Ok(Cartogram {
             lx,
             ly,
             n_regions,
@@ -84,7 +108,7 @@ impl Cartogram {
             pts,
             dct_x: planner.plan_dct2(lx),
             dct_y: planner.plan_dct2(ly),
-        }
+        })
     }
 
     pub fn points(&self) -> &[f64] {
@@ -105,8 +129,12 @@ impl Cartogram {
     /// Target areas for `values` (NaN = missing), preserving total area.
     /// Floored and missing regions hold their floor; the rest share what is left by value.
     pub fn targets(&self, values: &[f64], opt: &Options) -> Vec<f64> {
+        assert_eq!(values.len(), self.n_regions, "one value per region");
         let a0 = self.areas(&self.pts);
         let total: f64 = a0.iter().sum();
+        if total <= 0.0 {
+            return a0;
+        }
         let floor = |i: usize| (opt.min_ratio * a0[i]).max(opt.min_frac * total);
         let mut fixed: Vec<Option<f64>> = values
             .iter()
@@ -148,7 +176,7 @@ impl Cartogram {
         }
     }
 
-    pub fn solve(&self, values: &[f64], opt: &Options) -> (Vec<f64>, Stats) {
+    pub fn solve(&self, values: &[f64], opt: &Options) -> Result<(Vec<f64>, Stats), String> {
         self.solve_from(values, opt, &self.pts, 0)
     }
 
@@ -159,7 +187,17 @@ impl Cartogram {
         opt: &Options,
         start: &[f64],
         skip_blur: usize,
-    ) -> (Vec<f64>, Stats) {
+    ) -> Result<(Vec<f64>, Stats), String> {
+        if values.len() != self.n_regions {
+            return Err(format!(
+                "{} values for {} regions",
+                values.len(),
+                self.n_regions
+            ));
+        }
+        if start.len() != self.pts.len() || start.iter().any(|v| !v.is_finite()) {
+            return Err("start must be finite and the size of the geometry".into());
+        }
         let target = self.targets(values, opt);
         let mut pts = start.to_vec();
         let n = self.lx * self.ly;
@@ -172,6 +210,7 @@ impl Cartogram {
             steps: 0,
             max_err: f64::MAX,
             mean_err: f64::MAX,
+            truncated: false,
         };
         for it in 0..opt.max_iter {
             let area = self.areas(&pts);
@@ -196,14 +235,16 @@ impl Cartogram {
                 jy: &jy,
                 mean: mean_rho,
             };
-            stats.steps += self.advect(&mut pts, &flow, opt.max_step_cells);
+            let (steps, finished) = self.advect(&mut pts, &flow, opt.max_step_cells);
+            stats.steps += steps;
+            stats.truncated |= !finished;
             stats.iters = it + 1;
         }
         let area = self.areas(&pts);
         let (mx, mean) = errors(&area, &target);
         stats.max_err = mx;
         stats.mean_err = mean;
-        (pts, stats)
+        Ok((pts, stats))
     }
 
     fn rasterize(&self, pts: &[f64], dens: &[f64], rho: &mut [f64]) {
@@ -241,7 +282,7 @@ impl Cartogram {
                         j = i;
                     }
                 }
-                xs.sort_by(|a, b| a.partial_cmp(b).unwrap());
+                xs.sort_by(f64::total_cmp);
                 for pair in xs.as_chunks::<2>().0 {
                     let ca = ((pair[0] - 0.5).ceil().max(0.0)) as usize;
                     let cb = (pair[1] - 0.5).floor();
@@ -347,12 +388,13 @@ impl Cartogram {
         (self.sample(f.jx, x, y) / d, self.sample(f.jy, x, y) / d)
     }
 
-    fn advect(&self, pts: &mut [f64], f: &Flow, max_step: f64) -> usize {
+    /// Returns the step count and whether the flow ran to its end.
+    fn advect(&self, pts: &mut [f64], f: &Flow, max_step: f64) -> (usize, bool) {
         let mut t = 0.0;
         let mut steps = 0;
         let np = pts.len() / 2;
         let mut vel = vec![0.0; pts.len()];
-        while t < 1.0 && steps < 2000 {
+        while t < 1.0 && steps < MAX_STEPS {
             let mut vmax: f64 = 1e-12;
             for p in 0..np {
                 let (vx, vy) = self.velocity(f, t, pts[2 * p], pts[2 * p + 1]);
@@ -371,7 +413,7 @@ impl Cartogram {
             t += dt;
             steps += 1;
         }
-        steps
+        (steps, t >= 1.0)
     }
 }
 
@@ -399,48 +441,7 @@ fn errors(area: &[f64], target: &[f64]) -> (f64, f64) {
 }
 
 #[cfg(target_arch = "wasm32")]
-mod wasm {
-    use super::*;
-    use wasm_bindgen::prelude::*;
+mod wasm;
 
-    #[wasm_bindgen]
-    pub struct Solver {
-        inner: Cartogram,
-        last: Vec<f64>,
-    }
-
-    #[wasm_bindgen]
-    impl Solver {
-        #[wasm_bindgen(constructor)]
-        pub fn new(
-            lx: usize,
-            ly: usize,
-            n_regions: usize,
-            ring_start: &[u32],
-            ring_region: &[u32],
-            pts: &[f64],
-        ) -> Solver {
-            Solver {
-                inner: Cartogram::new(
-                    lx,
-                    ly,
-                    n_regions,
-                    ring_start.iter().map(|&v| v as usize).collect(),
-                    ring_region.iter().map(|&v| v as usize).collect(),
-                    pts.to_vec(),
-                ),
-                last: vec![0.0; 4],
-            }
-        }
-
-        pub fn solve(&mut self, values: &[f64]) -> Vec<f64> {
-            let (pts, s) = self.inner.solve(values, &Options::default());
-            self.last = vec![s.iters as f64, s.steps as f64, s.max_err, s.mean_err];
-            pts
-        }
-
-        pub fn stats(&self) -> Vec<f64> {
-            self.last.clone()
-        }
-    }
-}
+#[cfg(test)]
+mod tests;
