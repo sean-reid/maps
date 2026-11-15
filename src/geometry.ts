@@ -58,6 +58,7 @@ export function layout(topology: Topology, grid = GRID): Geometry {
       if (i > 0) {
         const ax = out[out.length - 2] ?? x;
         const ay = out[out.length - 1] ?? y;
+        if (x === ax && y === ay) return;
         const steps = Math.ceil(Math.hypot(x - ax, y - ay) / grid.maxEdge);
         for (let s = 1; s < steps; s++) {
           out.push(ax + ((x - ax) * s) / steps, ay + ((y - ay) * s) / steps);
@@ -77,7 +78,8 @@ export function layout(topology: Topology, grid = GRID): Geometry {
     const polygons = (g.type === "Polygon" ? [g.arcs] : g.arcs) as number[][][];
     for (const ring of polygons.flat()) {
       for (const ref of ring) {
-        const arc = arcs[ref < 0 ? ~ref : ref] ?? [];
+        const arc = arcs[ref < 0 ? ~ref : ref];
+        if (!arc) throw new Error(`ring refers to missing arc ${ref}`);
         const n = arc.length / 2;
         // The last point of an arc is the first point of the next.
         for (let i = 0; i < n - 1; i++) {

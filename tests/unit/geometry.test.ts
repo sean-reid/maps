@@ -50,6 +50,7 @@ test("no edge is longer than one cell and no ring is degenerate", () => {
       const dx = (geo.points[2 * i] ?? 0) - (geo.points[2 * j] ?? 0);
       const dy = (geo.points[2 * i + 1] ?? 0) - (geo.points[2 * j + 1] ?? 0);
       expect(Math.hypot(dx, dy)).toBeLessThanOrEqual(GRID.maxEdge + 1e-9);
+      expect(Math.hypot(dx, dy)).toBeGreaterThan(0);
     }
     expect(Math.abs(ringArea(k))).toBeGreaterThan(0);
   }
@@ -80,4 +81,74 @@ test("land covers a plausible share of the padded map", () => {
   const frame = GRID.width * GRID.height * (1 - 2 * GRID.pad) ** 2;
   expect(Math.abs(land) / frame).toBeGreaterThan(0.15);
   expect(Math.abs(land) / frame).toBeLessThan(0.45);
+});
+
+test("a reversed arc gives both neighbours the same points, split the same way", () => {
+  // Two unit squares side by side sharing arc 0, which the second walks backwards.
+  const small: Topology = {
+    transform: { scale: [1, 1], translate: [0, 0] },
+    arcs: [
+      [
+        [1, 0],
+        [0, 1],
+      ],
+      [
+        [1, 1],
+        [-1, 0],
+        [0, -1],
+        [1, 0],
+      ],
+      [
+        [1, 0],
+        [1, 0],
+        [0, 1],
+        [-1, 0],
+      ],
+    ],
+    objects: {
+      atoms: {
+        geometries: [
+          { type: "Polygon", arcs: [[0, 1]], properties: { iso: "AAA", name: "A" } },
+          { type: "MultiPolygon", arcs: [[[~0, 2]]], properties: { iso: "BBB", name: "B" } },
+        ],
+      },
+    },
+  };
+  const g = layout(small, { width: 40, height: 20, pad: 0.25, maxEdge: 2.5 });
+  expect([...g.ringStart]).toEqual([0, 16, 32]);
+  expect([...g.ringAtom]).toEqual([0, 1]);
+  const ring = (k: number) => {
+    const out: string[] = [];
+    for (let i = g.ringStart[k] ?? 0; i < (g.ringStart[k + 1] ?? 0); i++) {
+      out.push(`${g.points[2 * i]},${g.points[2 * i + 1]}`);
+    }
+    return out;
+  };
+  const [a, b] = [ring(0), ring(1)];
+  expect(new Set(a).size).toBe(16);
+  expect(a.slice(0, 4)).toEqual(["20,15", "20,12.5", "20,10", "20,7.5"]);
+  expect(b.slice(0, 4)).toEqual(["20,5", "20,7.5", "20,10", "20,12.5"]);
+  expect(a.filter((p) => b.includes(p)).sort()).toEqual(
+    ["20,5", "20,7.5", "20,10", "20,12.5", "20,15"].sort(),
+  );
+});
+
+test("a ring that names a missing arc is an error", () => {
+  const broken: Topology = {
+    transform: { scale: [1, 1], translate: [0, 0] },
+    arcs: [
+      [
+        [0, 0],
+        [1, 0],
+        [0, 1],
+        [-1, -1],
+      ],
+    ],
+    objects: {
+      atoms: {
+        geometries: [{ type: "Polygon", arcs: [[3]], properties: { iso: "AAA", name: "A" } }],
+      },
+    },
+  };
+  expect(() => layout(broken)).toThrow(/missing arc/);
 });

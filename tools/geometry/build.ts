@@ -12,15 +12,16 @@ const root = resolve(import.meta.dirname, "../..");
 const cache = resolve(root, ".cache");
 const cached = resolve(cache, "ne_50m_admin_0_countries.geojson");
 
-if (!existsSync(cached)) {
-  mkdirSync(cache, { recursive: true });
+const sha256 = (data: Buffer) => createHash("sha256").update(data).digest("hex");
+if (!existsSync(cached) || sha256(readFileSync(cached)) !== SHA256) {
   const res = await fetch(SOURCE);
   if (!res.ok) throw new Error(`${SOURCE}: ${res.status}`);
-  writeFileSync(cached, Buffer.from(await res.arrayBuffer()));
+  const body = Buffer.from(await res.arrayBuffer());
+  if (sha256(body) !== SHA256) throw new Error(`Natural Earth checksum mismatch: ${sha256(body)}`);
+  mkdirSync(cache, { recursive: true });
+  writeFileSync(cached, body);
 }
 const source = readFileSync(cached);
-const digest = createHash("sha256").update(source).digest("hex");
-if (digest !== SHA256) throw new Error(`Natural Earth checksum mismatch: ${digest}`);
 
 const commands = [
   "-i in.geojson",
@@ -45,10 +46,10 @@ interface Topology {
 }
 const topology = JSON.parse(text) as Topology;
 const atoms = topology.objects.atoms.geometries;
-const seen = new Set<string>();
-for (const atom of atoms) {
-  if (seen.has(atom.properties.iso)) throw new Error(`duplicate code ${atom.properties.iso}`);
-  seen.add(atom.properties.iso);
+for (const { properties } of atoms) {
+  if (!/^[A-Z]{3}$/.test(properties.iso) || !properties.name) {
+    throw new Error(`bad atom ${JSON.stringify(properties)}`);
+  }
 }
 const points = topology.arcs.reduce((n, arc) => n + arc.length, 0);
 
