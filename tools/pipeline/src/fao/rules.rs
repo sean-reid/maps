@@ -43,12 +43,12 @@ fn slug_part(s: &str) -> String {
     dashed.trim_matches('-').to_string()
 }
 
-/// The first unit a pair carries keeps the plain slug; later ones add their unit.
+/// A pair that carries several base units names the unit in each slug, so no slug depends on row order.
 pub fn slug(
     domain: &str,
     item_code: &str,
     element_code: &str,
-    unit_at: usize,
+    several_units: bool,
     unit: &str,
 ) -> String {
     let base = format!(
@@ -57,10 +57,10 @@ pub fn slug(
         slug_part(item_code),
         slug_part(element_code)
     );
-    if unit_at == 0 {
-        base
-    } else {
+    if several_units {
         format!("{base}-{}", slug_part(unit))
+    } else {
+        base
     }
 }
 
@@ -159,13 +159,16 @@ mod tests {
 
     #[test]
     fn slug_follows_domain_item_element() {
-        assert_eq!(slug("QCL", "221", "5312", 0, "ha"), "fao-qcl-221-5312");
-        assert_eq!(slug("GT", "5064", "723113", 0, "kt"), "fao-gt-5064-723113");
+        assert_eq!(slug("QCL", "221", "5312", false, "ha"), "fao-qcl-221-5312");
         assert_eq!(
-            slug("QCL", "1062", "5510", 1, "number"),
+            slug("GT", "5064", "723113", false, "kt"),
+            "fao-gt-5064-723113"
+        );
+        assert_eq!(
+            slug("QCL", "1062", "5510", true, "number"),
             "fao-qcl-1062-5510-number"
         );
-        assert_eq!(slug("FO", "1", "5622", 2, "US$"), "fao-fo-1-5622-us");
+        assert_eq!(slug("FO", "1", "5622", true, "US$"), "fao-fo-1-5622-us");
     }
 
     #[test]

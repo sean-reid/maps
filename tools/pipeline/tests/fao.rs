@@ -232,9 +232,9 @@ fn a_pair_with_two_base_units_becomes_two_series() {
     index::write(&out, &indicators).unwrap();
     assert_eq!(
         series_files(&out),
-        ["fao-qcl-1062-5510-number.bin", "fao-qcl-1062-5510.bin"]
+        ["fao-qcl-1062-5510-number.bin", "fao-qcl-1062-5510-t.bin"]
     );
-    assert_eq!(read_series(&out, "fao-qcl-1062-5510").3, [1.0, 3.0, 5.0]);
+    assert_eq!(read_series(&out, "fao-qcl-1062-5510-t").3, [1.0, 3.0, 5.0]);
     assert_eq!(
         read_series(&out, "fao-qcl-1062-5510-number").3,
         [2000.0, 4000.0, 6000.0]

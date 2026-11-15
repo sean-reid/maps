@@ -21,7 +21,6 @@ type Row = Vec<(f32, u32)>;
 
 struct Acc {
     /// Position of this base unit among the units its (item, element) pair carries, in file order.
-    unit_at: usize,
     item: String,
     element: String,
     measure: Measure,
@@ -159,20 +158,15 @@ fn ingest(
         let pair_units = units
             .entry((item_code.to_string(), element_code.to_string()))
             .or_default();
-        let unit_at = pair_units
-            .iter()
-            .position(|u| *u == measure.unit)
-            .unwrap_or_else(|| {
-                pair_units.push(measure.unit);
-                pair_units.len() - 1
-            });
+        if !pair_units.contains(&measure.unit) {
+            pair_units.push(measure.unit);
+        }
         let key = (
             item_code.to_string(),
             element_code.to_string(),
             measure.unit,
         );
         let acc = accs.entry(key).or_insert_with(|| Acc {
-            unit_at,
             item: field(&rec, cols.item).to_string(),
             element: element.to_string(),
             measure,
@@ -243,6 +237,9 @@ fn ingest(
     let mut out = Vec::new();
     for key in keys {
         let acc = accs.remove(&key).expect("key came from the map");
+        let several = units
+            .get(&(key.0.clone(), key.1.clone()))
+            .is_some_and(|u| u.len() > 1);
         let width = acc.rows.values().map(Vec::len).max().unwrap_or(0);
         let rows = acc
             .rows
@@ -269,7 +266,7 @@ fn ingest(
                 }
                 let indicator = Indicator {
                     source: Source::Fao,
-                    code: rules::slug(domain, &key.0, &key.1, acc.unit_at, acc.measure.unit),
+                    code: rules::slug(domain, &key.0, &key.1, several, acc.measure.unit),
                     title: rules::title(&acc.item, &acc.element),
                     unit: acc.measure.unit.to_string(),
                     series,
