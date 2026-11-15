@@ -34,13 +34,18 @@ export function draw(
   active: number,
   missing: Uint8Array | undefined,
   ink: Ink,
+  layer: { alpha: number; clear: boolean } = { alpha: 1, clear: true },
 ): void {
   const { width, height } = ctx.canvas;
   // The backing store keeps the density it was sized at, whatever the window reports now.
   const dpr = width / (ctx.canvas.getBoundingClientRect().width || width);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.fillStyle = ink.paper;
-  ctx.fillRect(0, 0, width / dpr, height / dpr);
+  ctx.globalAlpha = 1;
+  if (layer.clear) {
+    ctx.fillStyle = ink.paper;
+    ctx.fillRect(0, 0, width / dpr, height / dpr);
+  }
+  ctx.globalAlpha = layer.alpha;
   ctx.lineJoin = "round";
   ctx.strokeStyle = ink.ink;
 

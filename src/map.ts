@@ -2,12 +2,18 @@ import { Camera } from "./camera.ts";
 import { draw, type Ink } from "./draw.ts";
 import type { Geometry } from "./geometry.ts";
 import { atomAt, bounds, measure, type Shape } from "./shapes.ts";
+import { type Feel, groupVertices, leadByChange, Springs } from "./spring.ts";
 
 const TAP_SLOP_PX = 6;
+const FADE_MS = 220;
 
 export interface MapView {
-  /** Replaces the vertex positions, in the layout of `geo.points`. */
-  setPoints(points: Float64Array): void;
+  /**
+   * Moves the map to new vertex positions, in the layout of `geo.points`: sprung with `feel`,
+   * or cross-faded when the visitor asks for reduced motion. Resolves when the map is at rest there.
+   * `announce` false keeps a picked country's readout from being read out again.
+   */
+  moveTo(points: Float64Array, feel: Feel, announce: boolean): Promise<void>;
   /** Marks atoms to draw hatched, one byte per atom. */
   setMissing(missing: Uint8Array | undefined): void;
   shapes(): Shape[];
@@ -22,8 +28,17 @@ export function createMap(
 ): MapView {
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("this browser has no 2d canvas");
-  let points = geo.points;
+  const springs = new Springs(geo.points);
+  const group = groupVertices(geo.points);
+  const owner = new Uint32Array(geo.points.length / 2);
+  geo.ringAtom.forEach((atom, k) => owner.fill(atom, geo.ringStart[k], geo.ringStart[k + 1]));
+  const still = matchMedia("(prefers-reduced-motion: reduce)");
+  const points = springs.position;
   let shapes = measure(geo, points);
+  let ghost: { points: Float64Array; shapes: Shape[]; from: number } | undefined;
+  let last = 0;
+  let moving = false;
+  const arrived: (() => void)[] = [];
   let missing: Uint8Array | undefined;
   const home = bounds(shapes);
   const camera = new Camera();
@@ -45,9 +60,30 @@ export function createMap(
   const paint = (): void => {
     if (queued) return;
     queued = true;
-    requestAnimationFrame(() => {
+    requestAnimationFrame((now) => {
       queued = false;
-      draw(ctx, geo, points, shapes, camera, active, missing, ink());
+      if (moving) {
+        moving = springs.step((now - last) / 1000);
+        shapes = measure(geo, points);
+      }
+      last = now;
+      const fade = ghost ? Math.min(1, (now - ghost.from) / FADE_MS) : 1;
+      if (ghost && fade < 1) {
+        const under = { alpha: 1 - fade, clear: true };
+        draw(ctx, geo, ghost.points, ghost.shapes, camera, active, missing, ink(), under);
+        draw(ctx, geo, points, shapes, camera, active, missing, ink(), {
+          alpha: fade,
+          clear: false,
+        });
+      } else {
+        ghost = undefined;
+        draw(ctx, geo, points, shapes, camera, active, missing, ink());
+      }
+      if (moving || ghost) {
+        paint();
+      } else {
+        for (const done of arrived.splice(0)) done();
+      }
     });
   };
 
@@ -194,11 +230,23 @@ export function createMap(
   resize();
 
   return {
-    setPoints(next) {
-      points = next;
-      shapes = measure(geo, points);
-      onShow(active, announced);
+    moveTo(next, feel, announce) {
+      if (still.matches) {
+        // A fade already under way keeps its starting picture, so quick changes do not flicker.
+        ghost ??= { points: points.slice(), shapes, from: performance.now() };
+        springs.aim(next, feel);
+        springs.snap();
+        shapes = measure(geo, points);
+      } else {
+        const target = measure(geo, next);
+        const ratio = Float64Array.from(target, (t, i) => t.area / (shapes[i]?.area || 1));
+        springs.aim(next, feel, feel.stagger ? leadByChange(ratio, owner, group) : undefined);
+        moving = true;
+        last = performance.now();
+      }
+      onShow(active, announced && announce);
       paint();
+      return new Promise((done) => arrived.push(done));
     },
     setMissing(next) {
       missing = next;

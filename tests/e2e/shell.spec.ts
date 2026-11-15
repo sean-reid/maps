@@ -24,9 +24,11 @@ test.beforeAll(async () => {
   shapes = measure(geo, solver.solve(values).points);
 });
 
-async function open(page: Page) {
-  await page.goto("/");
+async function open(page: Page, path = "/", motion: "reduce" | "no-preference" = "reduce") {
+  await page.emulateMedia({ reducedMotion: motion });
+  await page.goto(path);
   await expect(page.locator("html")).toHaveAttribute("data-series", "wdi-sp-pop-totl");
+  await expect(page.locator("html")).toHaveAttribute("data-rest", "true");
   const box = await page.locator("#map").boundingBox();
   if (!box) throw new Error("no map");
   return box;
@@ -46,7 +48,9 @@ test("the map fills the page between the title and the footer", async ({ page },
   expect(box.width).toBe(viewport?.width);
   expect(box.height).toBeGreaterThan(200);
   await expect(page.getByRole("heading", { name: "Population, total" })).toBeVisible();
-  await expect(page.locator("#detail")).toHaveText(/^20\d\d, World Bank WDI$/);
+  await expect(page.locator("#detail")).toHaveText("World Bank WDI");
+  await expect(page.locator("#year-label")).toHaveText(/^20\d\d$/);
+  await expect(page).toHaveURL(/\/wdi-sp-pop-totl\/20\d\d$/);
   await expect(page.getByRole("link", { name: "source" })).toBeVisible();
   const scroll = await page.evaluate(() => document.documentElement.scrollHeight);
   expect(scroll).toBeLessThanOrEqual(viewport?.height ?? 0);
@@ -139,6 +143,82 @@ test("a touch tap pins a country and a second tap lets it go", async ({ page, ha
   await expect(page.locator("#readout")).toHaveText(/Brazil \d/);
   await page.touchscreen.tap(brazil.x, brazil.y);
   await expect(page.locator("#readout")).toBeEmpty();
+});
+
+test("a link to a series and year opens on that year", async ({ page }) => {
+  const box = await open(page, "/wdi-sp-pop-totl/1975");
+  await expect(page.locator("#year-label")).toHaveText("1975");
+  await expect(page.locator("#year")).toHaveValue("1975");
+  await expect(page).toHaveURL(/\/wdi-sp-pop-totl\/1975$/);
+  const china = screenOf("CHN", box);
+  await page.mouse.click(china.x, china.y);
+  await expect(page.locator("#readout")).toHaveText(
+    /^China 9\d\d,\d{3},\d{3} 2\d\.\d% of the world$/,
+  );
+});
+
+test("an unknown path opens the default series", async ({ page }) => {
+  await open(page, "/no-such-series/1999");
+  await expect(page.getByRole("heading", { name: "Population, total" })).toBeVisible();
+  await expect(page).toHaveURL(/\/wdi-sp-pop-totl\/20\d\d$/);
+});
+
+test("the year slider steps by keyboard and the readout follows", async ({ page }) => {
+  const box = await open(page, "/wdi-sp-pop-totl/2000");
+  const india = screenOf("IND", box);
+  await page.mouse.click(india.x, india.y);
+  const before = await page.locator("#readout .num").first().textContent();
+  await page.locator("#year").focus();
+  await page.keyboard.press("ArrowLeft");
+  await expect(page.locator("html")).toHaveAttribute("data-year", "1999");
+  await expect(page.locator("#year-label")).toHaveText("1999");
+  await expect(page).toHaveURL(/\/wdi-sp-pop-totl\/1999$/);
+  await expect(page.locator("#readout")).toContainText("India");
+  const after = await page.locator("#readout .num").first().textContent();
+  expect(Number(after?.replaceAll(",", ""))).toBeLessThan(Number(before?.replaceAll(",", "")));
+});
+
+test("play runs to the last year and stops, and pause holds the year", async ({ page }) => {
+  await open(page, "/wdi-sp-pop-totl/1960");
+  const play = page.getByRole("button", { name: "Play" });
+  await play.click();
+  const pause = page.getByRole("button", { name: "Pause" });
+  await expect
+    .poll(async () => Number(await page.locator("#year-label").textContent()))
+    .toBeGreaterThanOrEqual(1962);
+  await pause.click();
+  const held = await page.locator("#year-label").textContent();
+  await page.waitForTimeout(900);
+  await expect(page.locator("#year-label")).toHaveText(held ?? "");
+  await expect(play).toBeVisible();
+
+  await open(page, "/wdi-sp-pop-totl/2023");
+  await page.getByRole("button", { name: "Play" }).click();
+  await expect(page.locator("#year-label")).toHaveText("2025");
+  await expect(page.getByRole("button", { name: "Play" })).toBeVisible();
+  await expect(page).toHaveURL(/\/wdi-sp-pop-totl\/2025$/);
+});
+
+test("pausing and playing again at once does not run the years twice as fast", async ({ page }) => {
+  await open(page, "/wdi-sp-pop-totl/1960");
+  await page.getByRole("button", { name: "Play" }).click();
+  await page.getByRole("button", { name: "Pause" }).click();
+  await page.getByRole("button", { name: "Play" }).click();
+  const from = Number(await page.locator("#year-label").textContent());
+  await page.waitForTimeout(2100);
+  const to = Number(await page.locator("#year-label").textContent());
+  expect(to - from).toBeGreaterThanOrEqual(3);
+  expect(to - from).toBeLessThanOrEqual(7);
+});
+
+test("with motion on, the map springs and comes to rest where the solver put it", async ({
+  page,
+}, info) => {
+  const box = await open(page, "/", "no-preference");
+  const india = screenOf("IND", box);
+  await page.mouse.click(india.x, india.y);
+  await expect(page.locator("#readout")).toContainText("India");
+  await page.screenshot({ path: info.outputPath("rest.png") });
 });
 
 test("without data the page falls back to land area", async ({ page }) => {
