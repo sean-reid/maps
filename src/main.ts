@@ -65,7 +65,7 @@ function show(atom: number): void {
     num.textContent = share(shape.area);
     const rest = document.createElement("span");
     rest.className = "soft";
-    rest.textContent = "of the world's land";
+    rest.textContent = "of land outside Antarctica";
     readout!.append(name, num, rest);
   }
   paint();

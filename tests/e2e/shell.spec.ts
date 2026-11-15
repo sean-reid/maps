@@ -47,7 +47,7 @@ test("tapping a country shows its name and share, tapping the sea clears it", as
   const brazil = screenOf("BRA", box);
   await page.mouse.click(brazil.x, brazil.y);
   await expect(page.locator("#readout")).toContainText("Brazil");
-  await expect(page.locator("#readout")).toContainText(/6\.\d% ?of the world's land/);
+  await expect(page.locator("#readout")).toContainText(/6\.\d% ?of land outside Antarctica/);
   await page.screenshot({ path: info.outputPath("selected.png") });
   await page.mouse.click(box.x + 3, box.y + box.height - 3);
   await expect(page.locator("#readout")).toBeEmpty();
