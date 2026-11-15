@@ -14,7 +14,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ["scripts/**"],
+    files: ["scripts/**", "tools/**"],
     rules: { "no-console": "off" },
   },
 );
