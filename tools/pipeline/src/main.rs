@@ -120,6 +120,57 @@ mod tests {
         assert!(parse_flags(&args(&["stray"]), &["--input"]).is_err());
     }
 
+    fn fixtures() -> String {
+        concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures").to_string()
+    }
+
+    fn build_args(extra: &[&str], out: &str) -> Vec<String> {
+        let out = std::env::temp_dir().join(format!("pipeline-main-{}-{out}", std::process::id()));
+        let fixtures = fixtures();
+        let mut list = vec!["build", "--wdi", &fixtures, "--out", out.to_str().unwrap()];
+        list.extend_from_slice(extra);
+        let owned: Vec<String> = list.iter().map(|s| s.to_string()).collect();
+        owned
+    }
+
+    fn sources_in(args: &[String]) -> Vec<String> {
+        let out = &args[args.iter().position(|a| a == "--out").unwrap() + 1];
+        let json: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(format!("{out}/index.json")).unwrap()).unwrap();
+        let mut sources: Vec<String> = json["series"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|e| e["source"].as_str().unwrap().to_string())
+            .collect();
+        sources.sort();
+        sources.dedup();
+        sources
+    }
+
+    #[test]
+    fn build_without_fao_writes_only_wdi() {
+        let args = build_args(&["--min-countries", "3"], "no-fao");
+        run(&args).unwrap();
+        assert_eq!(sources_in(&args), ["World Bank WDI"]);
+    }
+
+    #[test]
+    fn build_with_fao_writes_both_sources() {
+        let fao = format!("{}/fao", fixtures());
+        let args = build_args(&["--min-countries", "3", "--fao", &fao], "with-fao");
+        run(&args).unwrap();
+        assert_eq!(sources_in(&args), ["FAOSTAT", "World Bank WDI"]);
+    }
+
+    #[test]
+    fn build_fao_without_a_value_fails() {
+        assert!(run(&build_args(&["--fao"], "bare-fao")).is_err());
+        let mut mid = build_args(&[], "mid-fao");
+        mid.insert(1, "--fao".to_string());
+        assert!(run(&mid).is_err());
+    }
+
     #[test]
     fn run_fails_on_bad_flags() {
         assert!(run(&args(&["build", "--wdi"])).is_err());

@@ -5,7 +5,7 @@ edition = "2021"
 rust-version = "1.88"
 license = "MIT"
 publish = false
-description = "Builds series files and a search index from the World Bank WDI bulk download."
+description = "Builds series files and a search index from the World Bank WDI and FAOSTAT bulk downloads."
 
 [lib]
 name = "pipeline"
