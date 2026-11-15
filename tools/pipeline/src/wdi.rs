@@ -1,3 +1,4 @@
+use crate::catalogue::{check_slugs, is_native, norm_unit, resolve_twins, Derived};
 use crate::derive::{self, Rows};
 use crate::format::{is_code, Series};
 use crate::index::Indicator;
@@ -33,7 +34,8 @@ pub struct Stats {
     pub duplicate: usize,
     pub kept: usize,
     pub derived: usize,
-    pub twins: usize,
+    pub retitled: usize,
+    pub merged: usize,
     pub by_rule: BTreeMap<&'static str, usize>,
 }
 
@@ -41,8 +43,8 @@ impl fmt::Display for Stats {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "indicators {}, kept {} native and {} derived, dropped: no metadata {}, not a total and no rule {}, licence not CC BY 4.0 {}, negative {}, too few countries {}, derived title already a native total {}; derived pairs sharing title and unit {}",
-            self.total, self.kept, self.derived, self.no_metadata, self.no_rule, self.not_cc_by, self.negative, self.too_few_countries, self.duplicate, self.twins
+            "indicators {}, kept {} native and {} derived, dropped: no metadata {}, not a total and no rule {}, licence not CC BY 4.0 {}, negative {}, too few countries {}, derived title already a native total {}; derived series retitled to tell twins apart {}, twins merged {}",
+            self.total, self.kept, self.derived, self.no_metadata, self.no_rule, self.not_cc_by, self.negative, self.too_few_countries, self.duplicate, self.retitled, self.merged
         )?;
         for (rule, n) in &self.by_rule {
             write!(f, "\n  {rule} {n}")?;
@@ -212,28 +214,15 @@ fn tally(stats: &mut Stats, reject: Reject) {
     }
 }
 
-/// A native total with the same title wins when its unit matches or is not stated.
-fn is_native(native: &HashSet<(String, String)>, plan: &Plan) -> bool {
-    let key = |unit: &str| (plan.title.clone(), unit.to_string());
-    native.contains(&key(&plan.unit)) || native.contains(&key(""))
-}
-
-/// Counts pairs of derived series that share a title and unit.
-fn twin_pairs(derived: &[Indicator]) -> usize {
-    let mut groups: HashMap<(&str, &str), usize> = HashMap::new();
-    for i in derived {
-        *groups.entry((&i.title, &i.unit)).or_default() += 1;
-    }
-    groups.values().map(|n| n * (n - 1) / 2).sum()
-}
-
 pub fn run(input: &Path, min_countries: usize) -> Result<(Vec<Indicator>, Stats)> {
     let countries = load_countries(&input.join("WDICountry.csv"))?;
     let meta = load_meta(&input.join("WDISeries.csv"))?;
+    let licensed = |code: &str| meta.get(code).is_some_and(|m| is_cc_by(&m.licence));
     let plans: HashMap<String, Plan> = meta
         .iter()
         .filter(|(_, m)| !is_total(&m.aggregation) && is_cc_by(&m.licence))
         .filter_map(|(code, m)| Some((code.clone(), rates::plan(&m.name, &m.definition)?)))
+        .filter(|(_, p)| p.rule.denom.iter().all(|d| licensed(d)))
         .collect();
     let needed: HashSet<&str> = plans
         .values()
@@ -322,14 +311,14 @@ pub fn run(input: &Path, min_countries: usize) -> Result<(Vec<Indicator>, Stats)
     }
     let native: HashSet<(String, String)> = indicators
         .iter()
-        .map(|i| (i.title.clone(), i.unit.clone()))
+        .map(|i| (i.title.clone(), norm_unit(&i.unit)))
         .collect();
     let mut codes: Vec<&String> = plans.keys().collect();
     codes.sort();
     let mut derived = Vec::new();
     for code in codes {
         let plan = &plans[code];
-        if is_native(&native, plan) {
+        if is_native(&native, &plan.title, &plan.unit) {
             stats.duplicate += 1;
             continue;
         }
@@ -339,21 +328,29 @@ pub fn run(input: &Path, min_countries: usize) -> Result<(Vec<Indicator>, Stats)
         };
         match finish(rows, width, first_col_year, min_countries) {
             Ok(series) => {
-                *stats.by_rule.entry(plan.rule.name).or_default() += 1;
-                derived.push(Indicator {
-                    code: code.clone(),
-                    title: plan.title.clone(),
-                    unit: plan.unit.clone(),
-                    series,
-                    derived: Some(plan.rule.note.to_string()),
-                });
+                derived.push(Derived::new(
+                    Indicator {
+                        code: code.clone(),
+                        title: plan.title.clone(),
+                        unit: plan.unit.clone(),
+                        series,
+                        derived: Some(plan.rule.note.to_string()),
+                    },
+                    plan,
+                ));
             }
             Err(reject) => tally(&mut stats, reject),
         }
     }
+    let (derived, retitled, merged) = resolve_twins(derived);
+    stats.retitled = retitled;
+    stats.merged = merged;
     stats.derived = derived.len();
-    stats.twins = twin_pairs(&derived);
-    indicators.extend(derived);
+    for d in &derived {
+        *stats.by_rule.entry(d.plan.rule.name).or_default() += 1;
+    }
+    indicators.extend(derived.into_iter().map(|d| d.indicator));
+    check_slugs(&indicators)?;
     indicators.sort_by_key(|i| i.slug());
     Ok((indicators, stats))
 }

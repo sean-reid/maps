@@ -29,3 +29,13 @@ PER.COV.Q1,Misc,"Coverage, poorest quintile (% of population)",x,Weighted averag
 LIC.USER.ZS,Misc,Licensed users (% of population),x,Weighted average,SIPRI terms and conditions
 GC.LEND.GD.ZS,Misc,Net lending (% of GDP),x,Weighted average,CC BY-4.0
 REM.SITES.GD.ZS,Misc,Remote sites (% of GDP),x,Weighted average,CC BY-4.0
+BX.GSR.NFSV.CD,Misc,"Service exports (current US$, BoP)",x,Gap-filled total,CC BY-4.0
+BM.GSR.NFSV.CD,Misc,"Service imports (current US$, BoP)",x,Gap-filled total,CC BY-4.0
+TX.VAL.MRCH.CD.WT,Misc,Merchandise exports (current US$),x,Gap-filled total,Other terms
+BX.TRAN.ZS,Misc,"Transport services (% of service exports, BoP)",x,Weighted average,CC BY-4.0
+BM.TRAN.ZS,Misc,"Transport services (% of service imports, BoP)",x,Weighted average,CC BY-4.0
+MRCH.RATE.ZS,Misc,Machinery (% of merchandise exports),x,Weighted average,CC BY-4.0
+NE.TRD.GNFS.ZS,Misc,Trade (% of GDP),x,Weighted average,CC BY-4.0
+CREDIT.GROW.ZS,Misc,Credit growth (% of GDP),x,Weighted average,CC BY-4.0
+DEATHS.ADJ.P3,Misc,"Deaths, age-adjusted (per 1,000 people)",x,Weighted average,CC BY-4.0
+BEDS.CH.P3,Misc,"Beds, children (per 1,000 people)",x,Weighted average,CC BY-4.0

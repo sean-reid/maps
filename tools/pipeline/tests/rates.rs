@@ -52,16 +52,17 @@ fn counts_and_files() {
             stats.no_rule,
             stats.not_cc_by
         ),
-        (30, 7, 13, 5, 1)
+        (40, 9, 15, 8, 3)
     );
     assert_eq!(
         (
             stats.negative,
             stats.too_few_countries,
             stats.duplicate,
-            stats.twins
+            stats.retitled,
+            stats.merged
         ),
-        (1, 1, 2, 1)
+        (1, 1, 2, 2, 1)
     );
     let mut files: Vec<String> = fs::read_dir(out.join("series"))
         .unwrap()
@@ -69,7 +70,7 @@ fn counts_and_files() {
         .collect();
     files.sort();
     let derived = files.iter().filter(|f| f.ends_with("-total.bin")).count();
-    assert_eq!((files.len(), derived), (20, 13));
+    assert_eq!((files.len(), derived), (24, 15));
 }
 
 #[test]
@@ -235,7 +236,7 @@ fn index_carries_the_derived_sentence_only_on_derived_series() {
         .iter()
         .filter(|e| e.get("derived").is_some())
         .count();
-    assert_eq!(with_derived, 13);
+    assert_eq!(with_derived, 15);
 }
 
 #[test]
@@ -284,29 +285,93 @@ fn derived_series_dropped_for_negatives_coverage_and_native_twins() {
 }
 
 #[test]
-fn twins_with_one_title_and_unit_both_stay() {
+fn twins_are_retitled_by_tag_or_merged() {
     let (out, _) = run_and_write("rates-twins");
-    let (a, b) = (entry(&out, "wdi-hs-a-total"), entry(&out, "wdi-hs-b-total"));
-    assert_eq!((&a["title"], &a["unit"]), (&b["title"], &b["unit"]));
+    let exports = entry(&out, "wdi-bx-tran-zs-total");
+    let imports = entry(&out, "wdi-bm-tran-zs-total");
+    assert_eq!(
+        exports["title"],
+        "Transport services, share of service exports"
+    );
+    assert_eq!(
+        imports["title"],
+        "Transport services, share of service imports"
+    );
+    assert_eq!(exports["unit"], imports["unit"]);
     assert_series(
         &out,
-        "wdi-hs-a-total",
+        "wdi-bx-tran-zs-total",
         [
-            [2.0, 4.0, 8.0],
-            [0.4, 0.8, 1.6],
-            [NAN, 0.2, 0.4],
-            [0.02, 0.04, 0.08],
+            [100.0, 200.0, 400.0],
+            [50.0; 3],
+            [10.0, 20.0, 40.0],
+            [1.0, 2.0, 4.0],
         ],
     );
+    let all = entries(&out);
+    let mut keys: Vec<(String, String)> = all
+        .iter()
+        .map(|e| (e["title"].to_string(), e["unit"].to_string()))
+        .collect();
+    keys.sort();
+    keys.dedup();
+    assert_eq!(keys.len(), all.len());
+    assert!(all.iter().any(|e| e["slug"] == "wdi-hs-a-total"));
+    assert!(!all.iter().any(|e| e["slug"] == "wdi-hs-b-total"));
+}
+
+#[test]
+fn flows_and_changes_and_licences() {
+    let (out, _) = run_and_write("rates-flows");
+    let trade = entry(&out, "wdi-ne-trd-gnfs-zs-total");
+    assert_eq!(trade["title"], "Trade, exports plus imports");
     assert_series(
         &out,
-        "wdi-hs-b-total",
+        "wdi-ne-trd-gnfs-zs-total",
         [
-            [10.0, 20.0, 40.0],
-            [2.0, 4.0, 8.0],
-            [NAN, 1.0, 2.0],
-            [0.1, 0.2, 0.4],
+            [100000.0, 200000.0, 400000.0],
+            [50000.0; 3],
+            [10000.0, 20000.0, 40000.0],
+            [1000.0, 2000.0, 4000.0],
         ],
+    );
+    let slugs: Vec<String> = entries(&out)
+        .iter()
+        .map(|e| e["slug"].as_str().unwrap().to_string())
+        .collect();
+    for code in [
+        "credit-grow-zs",
+        "deaths-adj-p3",
+        "beds-ch-p3",
+        "mrch-rate-zs",
+    ] {
+        assert!(!slugs.contains(&format!("wdi-{code}-total")), "{code}");
+    }
+}
+
+#[test]
+fn a_slug_shared_by_native_and_derived_is_an_error() {
+    let src = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/rates");
+    let dir = out_dir("rates-slug");
+    fs::create_dir_all(&dir).unwrap();
+    for name in ["WDICountry.csv", "WDISeries.csv", "WDICSV.csv"] {
+        fs::copy(src.join(name), dir.join(name)).unwrap();
+    }
+    let mut series = fs::read_to_string(dir.join("WDISeries.csv")).unwrap();
+    series.push_str("SH.MED.BEDS.ZS-TOTAL,Misc,Spare beds,x,Sum,CC BY-4.0\n");
+    fs::write(dir.join("WDISeries.csv"), series).unwrap();
+    let mut data = fs::read_to_string(dir.join("WDICSV.csv")).unwrap();
+    for c in ["AAA", "BBB", "CCC", "DDD"] {
+        data.push_str(&format!("x,{c},Spare beds,SH.MED.BEDS.ZS-TOTAL,1,1,1\n"));
+    }
+    fs::write(dir.join("WDICSV.csv"), data).unwrap();
+    let err = wdi::run(&dir, 3)
+        .err()
+        .expect("collision must fail")
+        .to_string();
+    assert!(
+        err.contains("SH.MED.BEDS.ZS-TOTAL") && err.contains("SH.MED.BEDS.ZS"),
+        "{err}"
     );
 }
 

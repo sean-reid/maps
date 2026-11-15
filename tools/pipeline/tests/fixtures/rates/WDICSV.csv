@@ -121,3 +121,43 @@ Alpha,AAA,Remote sites (% of GDP),REM.SITES.GD.ZS,1,1,1
 Beta,BBB,Remote sites (% of GDP),REM.SITES.GD.ZS,1,1,1
 Gamma,CCC,Remote sites (% of GDP),REM.SITES.GD.ZS,,,
 Delta,DDD,Remote sites (% of GDP),REM.SITES.GD.ZS,,,
+Alpha,AAA,"Service exports (current US$, BoP)",BX.GSR.NFSV.CD,1000,2000,4000
+Beta,BBB,"Service exports (current US$, BoP)",BX.GSR.NFSV.CD,500,500,500
+Gamma,CCC,"Service exports (current US$, BoP)",BX.GSR.NFSV.CD,100,200,400
+Delta,DDD,"Service exports (current US$, BoP)",BX.GSR.NFSV.CD,10,20,40
+Alpha,AAA,"Service imports (current US$, BoP)",BM.GSR.NFSV.CD,2000,4000,8000
+Beta,BBB,"Service imports (current US$, BoP)",BM.GSR.NFSV.CD,1000,1000,1000
+Gamma,CCC,"Service imports (current US$, BoP)",BM.GSR.NFSV.CD,200,400,800
+Delta,DDD,"Service imports (current US$, BoP)",BM.GSR.NFSV.CD,20,40,80
+Alpha,AAA,Merchandise exports (current US$),TX.VAL.MRCH.CD.WT,1,1,1
+Beta,BBB,Merchandise exports (current US$),TX.VAL.MRCH.CD.WT,1,1,1
+Gamma,CCC,Merchandise exports (current US$),TX.VAL.MRCH.CD.WT,1,1,1
+Delta,DDD,Merchandise exports (current US$),TX.VAL.MRCH.CD.WT,1,1,1
+Alpha,AAA,"Transport services (% of service exports, BoP)",BX.TRAN.ZS,10,10,10
+Beta,BBB,"Transport services (% of service exports, BoP)",BX.TRAN.ZS,10,10,10
+Gamma,CCC,"Transport services (% of service exports, BoP)",BX.TRAN.ZS,10,10,10
+Delta,DDD,"Transport services (% of service exports, BoP)",BX.TRAN.ZS,10,10,10
+Alpha,AAA,"Transport services (% of service imports, BoP)",BM.TRAN.ZS,5,5,5
+Beta,BBB,"Transport services (% of service imports, BoP)",BM.TRAN.ZS,5,5,5
+Gamma,CCC,"Transport services (% of service imports, BoP)",BM.TRAN.ZS,5,5,5
+Delta,DDD,"Transport services (% of service imports, BoP)",BM.TRAN.ZS,5,5,5
+Alpha,AAA,Machinery (% of merchandise exports),MRCH.RATE.ZS,5,5,5
+Beta,BBB,Machinery (% of merchandise exports),MRCH.RATE.ZS,5,5,5
+Gamma,CCC,Machinery (% of merchandise exports),MRCH.RATE.ZS,5,5,5
+Delta,DDD,Machinery (% of merchandise exports),MRCH.RATE.ZS,5,5,5
+Alpha,AAA,Trade (% of GDP),NE.TRD.GNFS.ZS,10,10,10
+Beta,BBB,Trade (% of GDP),NE.TRD.GNFS.ZS,10,10,10
+Gamma,CCC,Trade (% of GDP),NE.TRD.GNFS.ZS,10,10,10
+Delta,DDD,Trade (% of GDP),NE.TRD.GNFS.ZS,10,10,10
+Alpha,AAA,Credit growth (% of GDP),CREDIT.GROW.ZS,5,5,5
+Beta,BBB,Credit growth (% of GDP),CREDIT.GROW.ZS,5,5,5
+Gamma,CCC,Credit growth (% of GDP),CREDIT.GROW.ZS,5,5,5
+Delta,DDD,Credit growth (% of GDP),CREDIT.GROW.ZS,5,5,5
+Alpha,AAA,"Deaths, age-adjusted (per 1,000 people)",DEATHS.ADJ.P3,5,5,5
+Beta,BBB,"Deaths, age-adjusted (per 1,000 people)",DEATHS.ADJ.P3,5,5,5
+Gamma,CCC,"Deaths, age-adjusted (per 1,000 people)",DEATHS.ADJ.P3,5,5,5
+Delta,DDD,"Deaths, age-adjusted (per 1,000 people)",DEATHS.ADJ.P3,5,5,5
+Alpha,AAA,"Beds, children (per 1,000 people)",BEDS.CH.P3,5,5,5
+Beta,BBB,"Beds, children (per 1,000 people)",BEDS.CH.P3,5,5,5
+Gamma,CCC,"Beds, children (per 1,000 people)",BEDS.CH.P3,5,5,5
+Delta,DDD,"Beds, children (per 1,000 people)",BEDS.CH.P3,5,5,5
