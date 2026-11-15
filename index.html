@@ -22,6 +22,19 @@
   <body>
     <header>
       <h1>maps</h1>
+      <input
+        id="search"
+        type="search"
+        role="combobox"
+        aria-label="Search series"
+        aria-controls="results"
+        aria-expanded="false"
+        aria-autocomplete="list"
+        autocomplete="off"
+        spellcheck="false"
+        disabled
+      />
+      <ul id="results" role="listbox" aria-label="Series" hidden></ul>
     </header>
     <main>
       <section class="series">

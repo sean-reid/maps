@@ -1,6 +1,7 @@
-import { loadCatalogue, loadSeries, type SeriesMeta } from "./data.ts";
+import { loadCatalogue, loadSeries, type Series, type SeriesMeta } from "./data.ts";
 import { layout, type Topology } from "./geometry.ts";
 import { createMap } from "./map.ts";
+import { createSearchBox } from "./searchbox.ts";
 import { SolverClient } from "./solver/client.ts";
 import { BOUNCE, type Feel, FOLLOW } from "./spring.ts";
 import { latestFullYear, rowsFor, valuesAt } from "./values.ts";
@@ -23,6 +24,8 @@ const timeBar = need<HTMLElement>("#time");
 const playButton = need<HTMLButtonElement>("#play");
 const yearInput = need<HTMLInputElement>("#year");
 const yearLabel = need<HTMLElement>("#year-label");
+const searchInput = need<HTMLInputElement>("#search");
+const searchList = need<HTMLElement>("#results");
 
 /** What the map currently shows: a value per atom and how to word it. */
 interface Frame {
@@ -90,31 +93,33 @@ async function start(): Promise<void> {
     halt();
     readout.textContent = "The map stopped responding. Reload the page to carry on.";
   });
-  const asked = parsePath(location.pathname);
-  const linked = catalogue.series.find((s: SeriesMeta) => s.slug === asked.slug);
-  const meta = linked ?? catalogue.series.find((s: SeriesMeta) => s.slug === OPENING);
-  if (!meta) return;
-  const series = await loadSeries(catalogue.version, meta.slug);
-  const rows = rowsFor(series, geo.atoms);
-  const [first, last] = [series.firstYear, series.firstYear + series.years - 1];
-  const wanted = (linked && asked.year) || latestFullYear(series);
-  let year = Math.min(last, Math.max(first, wanted));
-  let playing = false;
+  const fallback = catalogue.series.find((s: SeriesMeta) => s.slug === OPENING);
+  if (!fallback) return;
 
-  title.textContent = meta.title;
-  detail.textContent = [meta.unit, meta.source].filter(Boolean).join(", ");
-  yearInput.min = String(first);
-  yearInput.max = String(last);
-  timeBar.hidden = last === first;
+  /** The series on the map and where its years run. */
+  interface Open {
+    meta: SeriesMeta;
+    series: Series;
+    rows: Int32Array;
+    first: number;
+    last: number;
+  }
+  let open: Open | undefined;
+  let year = 0;
+  let playing = false;
+  // Retired by anything that starts a different series, year or playback, so stale work stops.
+  let run = 0;
 
   /** Solves and shows `to`; resolves once the map has started towards it, or at once if overtaken. */
   const showYear = async (to: number, feel: Feel): Promise<void> => {
+    if (!open) return;
+    const { meta, series, rows } = open;
     year = to;
     yearInput.value = String(to);
     yearLabel.textContent = String(to);
     const values = valuesAt(series, rows, to);
     const points = await solver.solve(values, shown.frame !== undefined);
-    if (!points) return;
+    if (!points || open.meta !== meta) return;
     shown.frame = {
       values,
       total: values.reduce((sum, v) => sum + (Number.isFinite(v) ? v : 0), 0),
@@ -128,19 +133,44 @@ async function start(): Promise<void> {
     root.dataset.rest = "false";
     writePath(`/${meta.slug}/${to}`);
     void map.moveTo(points, feel, feel === BOUNCE).then(() => {
-      if (root.dataset.year === String(to)) root.dataset.rest = "true";
+      if (root.dataset.series === meta.slug && root.dataset.year === String(to)) {
+        root.dataset.rest = "true";
+      }
     });
   };
 
-  // Each run of playback holds a number; stopping or restarting retires it, so an old loop cannot resume.
-  let run = 0;
   const stop = (): void => {
     run++;
     playing = false;
     playButton.textContent = "Play";
   };
 
+  /** Puts a series on the map at `wanted`, or at its last well-covered year. */
+  const openSeries = async (meta: SeriesMeta, wanted: number | undefined): Promise<void> => {
+    stop();
+    const mine = run;
+    const series = await loadSeries(catalogue.version, meta.slug);
+    if (mine !== run) return;
+    const [first, last] = [series.firstYear, series.firstYear + series.years - 1];
+    open = { meta, series, rows: rowsFor(series, geo.atoms), first, last };
+    title.textContent = meta.title;
+    detail.textContent = [meta.unit, meta.source].filter(Boolean).join(", ");
+    document.title = `${meta.title} · maps`;
+    yearInput.min = String(first);
+    yearInput.max = String(last);
+    timeBar.hidden = last === first;
+    await showYear(Math.min(last, Math.max(first, wanted ?? latestFullYear(series))), BOUNCE);
+  };
+
+  const openPath = (path: string): Promise<void> => {
+    const asked = parsePath(path);
+    const linked = catalogue.series.find((s: SeriesMeta) => s.slug === asked.slug);
+    return openSeries(linked ?? fallback, linked ? asked.year : undefined);
+  };
+
   const play = async (): Promise<void> => {
+    if (!open) return;
+    const { first, last } = open;
     const mine = ++run;
     playing = true;
     playButton.textContent = "Pause";
@@ -164,21 +194,38 @@ async function start(): Promise<void> {
     void showYear(Number(yearInput.value), FOLLOW);
   });
 
-  await showYear(year, BOUNCE);
+  createSearchBox(searchInput, searchList, catalogue.series, (meta) => {
+    if (meta === open?.meta) return;
+    // A new series is a new history entry, at the year on screen where the series has it.
+    flushPath();
+    history.pushState(null, "", `/${meta.slug}`);
+    void openSeries(meta, open && year >= meta.first && year <= meta.last ? year : undefined);
+  });
+  window.addEventListener("popstate", () => void openPath(location.pathname));
+
+  await openPath(location.pathname);
 }
 
 let pathTimer: ReturnType<typeof setTimeout> | undefined;
+let pendingPath: string | undefined;
 
-/** Puts `path` in the address bar once changes settle; browsers cap how often the history may be written. */
+/** Writes the waiting path now, so a history entry about to be pushed lands after it. */
+function flushPath(): void {
+  clearTimeout(pathTimer);
+  if (pendingPath === undefined) return;
+  try {
+    history.replaceState(null, "", pendingPath);
+  } catch {
+    // Browsers cap how often the history may be written; the next settled change writes the path.
+  }
+  pendingPath = undefined;
+}
+
+/** Puts `path` in the address bar once changes settle. */
 function writePath(path: string): void {
   clearTimeout(pathTimer);
-  pathTimer = setTimeout(() => {
-    try {
-      history.replaceState(null, "", path);
-    } catch {
-      // The cap was hit; the next settled change writes the path.
-    }
-  }, 300);
+  pendingPath = path;
+  pathTimer = setTimeout(flushPath, 300);
 }
 
 /** Reads `/<slug>` or `/<slug>/<year>`. */
