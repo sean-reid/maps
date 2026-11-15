@@ -214,14 +214,61 @@ test("pausing and playing again at once does not run the years twice as fast", a
   expect(to - from).toBeLessThanOrEqual(7);
 });
 
-test("with motion on, the map springs and comes to rest where the solver put it", async ({
+test("with motion on, a change of year springs and comes to rest where the solver put it", async ({
   page,
 }, info) => {
   const box = await open(page, "/", "no-preference");
+  const before = Number(await page.locator("#year-label").textContent());
+  await page.locator("#year").focus();
+  await page.keyboard.press("ArrowLeft");
+  await expect(page.locator("html")).toHaveAttribute("data-year", String(before - 1));
+  await expect(page.locator("html")).toHaveAttribute("data-rest", "true");
   const india = screenOf("IND", box);
   await page.mouse.click(india.x, india.y);
   await expect(page.locator("#readout")).toContainText("India");
   await page.screenshot({ path: info.outputPath("rest.png") });
+});
+
+test("nothing is drawn until the first series is in shape", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  let release = (): void => undefined;
+  const held = new Promise<void>((done) => (release = done));
+  await page.route("**/api/index", async (route) => {
+    await held;
+    await route.continue();
+  });
+  await page.goto("/");
+  await expect(page.locator("html")).toHaveAttribute("data-ready", "true");
+  await expect(page.locator("#map")).toBeHidden();
+  await expect(page.locator("#title")).toBeEmpty();
+  await expect(page.locator("#time")).toBeHidden();
+  release();
+  await expect(page.locator("#map")).toBeVisible();
+  // The map is at rest the moment it appears: it did not spring in from the plain map.
+  const restAtReveal = await page.evaluate(
+    () =>
+      !document.querySelector("#map")?.hasAttribute("data-waiting") &&
+      document.documentElement.dataset.rest === "true",
+  );
+  expect(restAtReveal).toBe(true);
+  await expect(page.getByRole("heading", { name: "Population, total" })).toBeVisible();
+});
+
+test("if the solver cannot load, the plain map shows with a message", async ({ page }) => {
+  await page.route("**/*.wasm", (route) => route.fulfill({ status: 404, body: "" }));
+  await page.goto("/");
+  await expect(page.locator("#map")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Land area" })).toBeVisible();
+  await expect(page.locator("#readout")).toHaveText(/stopped responding/);
+  await expect(page.locator("#time")).toBeHidden();
+});
+
+test("if the first series cannot load, the plain map shows with a message", async ({ page }) => {
+  await page.route("**/series/*.bin", (route) => route.fulfill({ status: 500, body: "" }));
+  await page.goto("/");
+  await expect(page.locator("#map")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Land area" })).toBeVisible();
+  await expect(page.locator("#readout")).toHaveText("wdi-sp-pop-totl did not load (500)");
 });
 
 test("without data the page falls back to land area", async ({ page }) => {
