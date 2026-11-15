@@ -1,3 +1,4 @@
+use pipeline::build::{self, Inputs};
 use pipeline::{fetch, index, wdi, Result};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -5,7 +6,7 @@ use std::process::ExitCode;
 use std::time::Instant;
 
 const USAGE: &str = "usage:
-  pipeline wdi --input <dir> --out <dir> [--min-countries <n>]
+  pipeline build --wdi <dir> --out <dir> [--min-countries <n>]
   pipeline fetch-wdi --to <dir>";
 
 /// Parses `--flag value` pairs; an unknown flag, a missing value, or a value that looks like a flag is an error.
@@ -34,18 +35,21 @@ fn required(flags: &HashMap<String, String>, name: &str) -> Result<PathBuf> {
 fn run(args: &[String]) -> Result<()> {
     let rest = args.get(1..).unwrap_or(&[]);
     match args.first().map(String::as_str) {
-        Some("wdi") => {
-            let flags = parse_flags(rest, &["--input", "--out", "--min-countries"])?;
-            let input = required(&flags, "--input")?;
+        Some("build") => {
+            let flags = parse_flags(rest, &["--wdi", "--out", "--min-countries"])?;
+            let wdi_dir = required(&flags, "--wdi")?;
             let out = required(&flags, "--out")?;
             let min_countries = match flags.get("--min-countries") {
                 Some(v) => v.parse()?,
                 None => wdi::DEFAULT_MIN_COUNTRIES,
             };
             let start = Instant::now();
-            let (indicators, stats) = wdi::run(&input, min_countries)?;
+            let inputs = Inputs { wdi: &wdi_dir };
+            let (indicators, reports) = build::run(&inputs, min_countries)?;
             let bytes = index::write(&out, &indicators)?;
-            println!("{stats}");
+            for report in reports {
+                println!("{report}");
+            }
             println!(
                 "wrote {} series, {bytes} bytes, in {:.1}s",
                 indicators.len(),
@@ -109,7 +113,9 @@ mod tests {
 
     #[test]
     fn run_fails_on_bad_flags() {
-        assert!(run(&args(&["wdi", "--input"])).is_err());
+        assert!(run(&args(&["build", "--wdi"])).is_err());
+        assert!(run(&args(&["build", "--out", "x"])).is_err());
+        assert!(run(&args(&["wdi", "--input", "x"])).is_err());
         assert!(run(&args(&["fetch-wdi", "--nope", "x"])).is_err());
     }
 }

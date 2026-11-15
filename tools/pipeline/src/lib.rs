@@ -1,3 +1,4 @@
+pub mod build;
 pub mod catalogue;
 pub mod derive;
 pub mod fetch;
