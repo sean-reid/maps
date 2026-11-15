@@ -1,0 +1,31 @@
+Series Code,Topic,Indicator Name,Long definition,Aggregation method,License Type
+SP.POP.TOTL,Misc,"Population, total",x,Sum,CC BY-4.0
+SP.POP.1564.TO,Misc,"Population ages 15-64, total",x,Sum,CC BY-4.0
+SP.POP.65UP.TO,Misc,"Population ages 65 and above, total",x,Sum,CC BY-4.0
+NY.GDP.MKTP.CD,Misc,GDP (current US$),x,Gap-filled total,CC BY-4.0
+AG.LND.TOTL.K2,Misc,Land area (sq. km),x,Sum,CC BY-4.0
+SL.TLF.TOTL.IN,Misc,"Labor force, total",x,Sum,CC BY-4.0
+SP.URB.TOTL,Misc,Urban population,x,Sum,CC BY-4.0
+IT.NET.USER.ZS,Misc,Individuals using the Internet (% of population),x,Weighted average,CC BY-4.0
+SH.MED.BEDS.ZS,Misc,"Hospital beds (per 1,000 people)",x,Weighted average,CC BY-4.0
+IT.CEL.SETS.P2,Misc,Mobile subscriptions (per 100 people),x,Weighted average,CC BY-4.0
+SH.STA.TRAF.P5,Misc,"Road deaths (per 100,000 people)",x,Weighted average,CC BY-4.0
+SP.POP.SCIE.RD.P6,Misc,Researchers (per million people),x,Weighted average,CC BY-4.0
+GB.XPD.RSDV.GD.ZS,Misc,Research spending (% of GDP),x,Weighted average,CC BY-4.0
+AG.LND.PRCT.ZS,Misc,Protected land (% of land area),x,Weighted average,CC BY-4.0
+SL.UEM.TOTL.ZS,Misc,"Unemployment, total (% of total labor force) (modeled ILO estimate)",x,Weighted average,CC BY-4.0
+SH.XPD.CHEX.PC.CD,Misc,Health spending per capita (current US$),x,Weighted average,CC BY-4.0
+EG.USE.ELEC.KH.PC,Misc,Electric power use (kWh per capita),x,Weighted average,CC BY-4.0
+FX.OWN.TOTL.ZS,Misc,Account holders (% of population ages 15+),x,Weighted average,CC BY-4.0
+NY.GDP.PCAP.CD,Misc,GDP per capita (current US$),x,Weighted average,CC BY-4.0
+SP.URB.TOTL.IN.ZS,Misc,Urban population (% of total population),x,Weighted average,CC BY-4.0
+HS.A,Misc,"Hospital stays (per 1,000 people)",x,Weighted average,CC BY-4.0
+HS.B,Misc,Hospital stays (per 100 people),x,Weighted average,CC BY-4.0
+DIG.IDX,Misc,Digital index (2015 = 100),x,Weighted average,CC BY-4.0
+NY.GDP.GROW,Misc,Output growth (annual %),x,Weighted average,CC BY-4.0
+SH.XPD.PC.CN,Misc,Spending per capita (current LCU),x,Weighted average,CC BY-4.0
+SH.AGE.STD.P5,Misc,"Deaths, standardized (per 100,000 people)",The rates are age-standardized.,Weighted average,CC BY-4.0
+PER.COV.Q1,Misc,"Coverage, poorest quintile (% of population)",x,Weighted average,CC BY-4.0
+LIC.USER.ZS,Misc,Licensed users (% of population),x,Weighted average,SIPRI terms and conditions
+GC.LEND.GD.ZS,Misc,Net lending (% of GDP),x,Weighted average,CC BY-4.0
+REM.SITES.GD.ZS,Misc,Remote sites (% of GDP),x,Weighted average,CC BY-4.0

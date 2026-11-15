@@ -1,3 +1,6 @@
+mod common;
+
+use common::{out_dir, read_series};
 use pipeline::index;
 use pipeline::wdi::{self, Stats};
 use std::fs;
@@ -7,39 +10,11 @@ fn input() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures")
 }
 
-fn out_dir(name: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("pipeline-{}-{name}", std::process::id()));
-    let _ = fs::remove_dir_all(&dir);
-    dir
-}
-
-/// Decodes a series file by hand, independent of the encoder.
-fn decode(bytes: &[u8]) -> (Vec<String>, u16, u16, Vec<f32>) {
-    assert_eq!(&bytes[0..4], b"MSR1");
-    let u16_at = |at: usize| u16::from_le_bytes([bytes[at], bytes[at + 1]]);
-    let (n, first, years) = (u16_at(4) as usize, u16_at(6), u16_at(8));
-    assert_eq!(u16_at(10), 0);
-    let codes = (0..n)
-        .map(|i| String::from_utf8(bytes[12 + 3 * i..15 + 3 * i].to_vec()).unwrap())
-        .collect();
-    let data = (12 + 3 * n).div_ceil(4) * 4;
-    assert_eq!(bytes.len(), data + 4 * n * years as usize);
-    let values = bytes[data..]
-        .chunks(4)
-        .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
-        .collect();
-    (codes, first, years, values)
-}
-
 fn run_and_write(name: &str, min: usize) -> (PathBuf, Stats) {
     let (indicators, stats) = wdi::run(&input(), min).unwrap();
     let out = out_dir(name);
     index::write(&out, &indicators).unwrap();
     (out, stats)
-}
-
-fn read_series(out: &Path, slug: &str) -> (Vec<String>, u16, u16, Vec<f32>) {
-    decode(&fs::read(out.join(format!("series/{slug}.bin"))).unwrap())
 }
 
 #[test]
@@ -50,11 +25,12 @@ fn each_rule_drops_its_indicator() {
         Stats {
             total: 11,
             no_metadata: 1,
-            not_sum: 1,
+            no_rule: 1,
             not_cc_by: 1,
             negative: 1,
             too_few_countries: 1,
             kept: 6,
+            ..Stats::default()
         }
     );
     let mut files: Vec<String> = fs::read_dir(out.join("series"))
