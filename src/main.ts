@@ -121,7 +121,7 @@ async function start(): Promise<void> {
     yearLabel.textContent = String(to);
     const values = valuesAt(series, rows, to);
     const points = await solver.solve(values, shown.frame !== undefined);
-    if (!points || open.meta !== meta) return;
+    if (!points || open?.meta !== meta) return;
     shown.frame = {
       values,
       total: values.reduce((sum, v) => sum + (Number.isFinite(v) ? v : 0), 0),
