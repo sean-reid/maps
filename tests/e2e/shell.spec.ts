@@ -39,7 +39,7 @@ async function open(page: Page, path = "/", motion: "reduce" | "no-preference" =
 
 function screenOf(iso: string, box: { x: number; y: number; width: number; height: number }) {
   const camera = new Camera();
-  camera.fit(home, box.width, box.height);
+  camera.fit(bounds(shapes), box.width, box.height);
   const anchor = shapes[geo.atoms.findIndex((a) => a.iso === iso)]?.anchor;
   const [x, y] = camera.toScreen(anchor?.x ?? 0, anchor?.y ?? 0);
   return { x: box.x + x, y: box.y + y };
@@ -269,6 +269,26 @@ test("if the first series cannot load, the plain map shows with a message", asyn
   await expect(page.locator("#map")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Land area" })).toBeVisible();
   await expect(page.locator("#readout")).toHaveText("wdi-sp-pop-totl did not load (500)");
+});
+
+test("the solved map sits wholly inside the view", async ({ page }) => {
+  await open(page);
+  // Before the view followed the solved map, the far north ran off the top of the canvas.
+  const inked = await page.evaluate(() => {
+    const canvas = document.querySelector("#map") as HTMLCanvasElement;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return -1;
+    const paper = ctx.getImageData(1, canvas.height - 2, 1, 1).data;
+    let count = 0;
+    for (const y of [0, 1, 2, canvas.height - 3, canvas.height - 2, canvas.height - 1]) {
+      const row = ctx.getImageData(0, y, canvas.width, 1).data;
+      for (let i = 0; i < row.length; i += 4) {
+        if (Math.abs((row[i] ?? 0) - (paper[0] ?? 0)) > 24) count++;
+      }
+    }
+    return count;
+  });
+  expect(inked).toBe(0);
 });
 
 test("without data the page falls back to land area", async ({ page }) => {
