@@ -126,3 +126,27 @@ test("a series that fails to load says so and can be picked again", async ({ pag
   await search.press("Enter");
   await shows(page, "wdi-ny-gdp-mktp-cd");
 });
+
+test("a map reached by switching series and stepping years matches the one loaded directly", async ({
+  page,
+}) => {
+  const picture = () =>
+    page.evaluate(() => (document.querySelector("#map") as HTMLCanvasElement).toDataURL());
+  await open(page, "/wdi-ny-gdp-mktp-cd/1994");
+  const direct = await picture();
+
+  await open(page, "/wdi-sp-pop-totl/2000");
+  const search = page.getByRole("combobox", { name: "Search series" });
+  await search.fill("gdp");
+  await search.press("Enter");
+  await shows(page, "wdi-ny-gdp-mktp-cd");
+  await page.locator("#year").focus();
+  for (let year = 1999; year >= 1994; year--) {
+    await page.keyboard.press("ArrowLeft");
+    await expect(page.locator("html")).toHaveAttribute("data-year", String(year));
+  }
+  await expect(page.locator("html")).toHaveAttribute("data-rest", "true");
+  await page.locator("#year").blur();
+  await page.mouse.move(2, 2);
+  expect(await picture()).toBe(direct);
+});
