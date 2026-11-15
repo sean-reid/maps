@@ -114,7 +114,10 @@ async function start(): Promise<void> {
 
   /** Solves and shows `to`; resolves once the map has started towards it, or at once if overtaken. */
   const showYear = async (to: number, feel: Feel): Promise<void> => {
-    if (!open) return;
+    if (!open) {
+      yearInput.value = String(year);
+      return;
+    }
     const { meta, series, rows } = open;
     year = to;
     yearInput.value = String(to);
@@ -151,10 +154,18 @@ async function start(): Promise<void> {
   const openSeries = async (meta: SeriesMeta, wanted: number | undefined): Promise<void> => {
     stop();
     const mine = run;
-    const shownYear = open ? year : undefined;
+    // `year` outlives a load in flight, so a second pick still carries the year on screen.
+    const shownYear = year || undefined;
     open = undefined;
     target = meta;
-    const series = await loadSeries(catalogue.version, meta.slug);
+    let series: Series;
+    try {
+      series = await loadSeries(catalogue.version, meta.slug);
+    } catch (error) {
+      if (mine !== run) return;
+      target = undefined;
+      throw error;
+    }
     if (mine !== run) return;
     const [first, last] = [series.firstYear, series.firstYear + series.years - 1];
     open = { meta, series, rows: rowsFor(series, geo.atoms), first, last };

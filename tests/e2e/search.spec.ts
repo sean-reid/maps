@@ -110,3 +110,19 @@ test("without data the search box stays disabled", async ({ page }) => {
   await expect(page.locator("html")).toHaveAttribute("data-ready", "true");
   await expect(page.locator("#search")).toBeDisabled();
 });
+
+test("a series that fails to load says so and can be picked again", async ({ page }) => {
+  await open(page);
+  let fail = true;
+  await page.route("**/series/wdi-ny-gdp-mktp-cd.bin", (route) =>
+    fail ? route.fulfill({ status: 500, body: "" }) : route.continue(),
+  );
+  const search = page.getByRole("combobox", { name: "Search series" });
+  await search.fill("gdp");
+  await search.press("Enter");
+  await expect(page.locator("#readout")).toHaveText("wdi-ny-gdp-mktp-cd did not load (500)");
+  fail = false;
+  await search.fill("gdp");
+  await search.press("Enter");
+  await shows(page, "wdi-ny-gdp-mktp-cd");
+});
