@@ -79,6 +79,7 @@ export class Springs {
 
   /** Advances by `seconds`; returns whether anything is still moving. */
   step(seconds: number): boolean {
+    if (!(seconds > 0)) return true;
     let moving = false;
     for (let left = Math.min(seconds, 0.1); left > 1e-9; left -= MAX_STEP) {
       moving = this.advance(Math.min(left, MAX_STEP));

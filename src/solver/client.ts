@@ -2,7 +2,7 @@ import type { Geometry } from "../geometry.ts";
 import type { Reply, Request } from "./worker.ts";
 import wasmUrl from "./cartogram.wasm?url";
 
-/** Runs the solver off the main thread. Only the newest request's answer is delivered. */
+/** Runs the solver off the main thread. */
 export class SolverClient {
   private worker: Worker;
   private next = 1;
@@ -22,7 +22,7 @@ export class SolverClient {
         this.failed?.(reply.error);
         done?.(undefined);
       } else {
-        done?.(reply.id === this.next - 1 ? reply.points : undefined);
+        done?.(reply.points);
       }
     };
     this.ready = fetch(wasmUrl)
@@ -35,20 +35,39 @@ export class SolverClient {
     this.ready.catch(() => undefined);
   }
 
-  /** Resolves with the solved points, or undefined when a newer request overtook this one. */
+  /**
+   * Resolves with the solved points, or undefined when a newer request overtook this one.
+   * One solve runs at a time; of those asked for meanwhile, only the newest is sent.
+   */
   solve(values: Float64Array, warm: boolean): Promise<Float64Array | undefined> {
-    const id = this.next++;
     return new Promise((done) => {
-      this.waiting.set(id, done);
+      this.queued?.done(undefined);
+      this.queued = { values, warm, done };
       this.ready.then(
-        () => this.send({ kind: "solve", id, values, warm }),
+        () => this.pump(),
         (error: unknown) => {
-          this.waiting.delete(id);
+          this.queued = undefined;
           this.failed?.(error instanceof Error ? error.message : String(error));
           done(undefined);
         },
       );
     });
+  }
+
+  private queued:
+    | { values: Float64Array; warm: boolean; done: (points: Float64Array | undefined) => void }
+    | undefined;
+
+  private pump(): void {
+    if (this.waiting.size > 0 || !this.queued) return;
+    const { values, warm, done } = this.queued;
+    this.queued = undefined;
+    const id = this.next++;
+    this.waiting.set(id, (points) => {
+      done(points);
+      this.pump();
+    });
+    this.send({ kind: "solve", id, values, warm });
   }
 
   private send(message: Request, transfer: Transferable[] = []): void {

@@ -67,6 +67,14 @@ test("a new aim mid-flight keeps the motion continuous", () => {
   expect(springs.position[0]).toBe(-50);
 });
 
+test("a frame with no time in it leaves the spring in flight", () => {
+  const springs = new Springs(Float64Array.of(0, 0));
+  springs.aim(Float64Array.of(100, 0), BOUNCE);
+  expect(springs.step(0)).toBe(true);
+  expect(springs.step(-0.004)).toBe(true);
+  expect(springs.position[0]).toBe(0);
+});
+
 test("a huge frame gap does not blow the spring up", () => {
   const springs = new Springs(Float64Array.of(0, 0));
   springs.aim(Float64Array.of(100, 0), BOUNCE);
