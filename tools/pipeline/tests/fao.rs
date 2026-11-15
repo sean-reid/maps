@@ -51,11 +51,11 @@ fn only_summable_totals_with_enough_countries_are_written() {
 fn areas_map_through_m49_and_aggregates_and_the_combined_china_row_are_dropped() {
     let (out, _) = run_and_write("fao-wheat");
     let (codes, first, years, values) = read_series(&out, "fao-qcl-15-5510");
-    assert_eq!(codes, ["AFG", "ALB", "CHN", "DZA", "TWN"]);
+    assert_eq!(codes, ["AFG", "ALB", "CHN", "DZA", "SUN", "TWN"]);
     assert_eq!((first, years), (1990, 2));
     let nan = f32::NAN;
     let expected = [
-        100.0, 110.0, 200.0, nan, 1000.0, 1100.0, 300.0, 310.0, 7.0, 8.0,
+        100.0, 110.0, 200.0, nan, 1000.0, 1100.0, 300.0, 310.0, 5000.0, 5001.0, 7.0, 8.0,
     ];
     assert_eq!(values.len(), expected.len());
     for (got, want) in values.iter().zip(expected) {
@@ -64,13 +64,14 @@ fn areas_map_through_m49_and_aggregates_and_the_combined_china_row_are_dropped()
 }
 
 #[test]
-fn historical_entities_are_reported_with_their_years_and_series() {
+fn areas_without_a_place_on_the_map_are_reported_with_their_years_and_series() {
     let (_, stats) = run_and_write("fao-historic");
-    let ussr = &stats.unmapped[&("228".to_string(), "USSR".to_string())];
-    assert_eq!((ussr.first, ussr.last, ussr.series), (1990, 1991, 1));
+    assert!(!stats
+        .unmapped
+        .contains_key(&("228".to_string(), "USSR".to_string())));
     let africa = &stats.unmapped[&("420".to_string(), "Sub-Saharan Africa".to_string())];
     assert_eq!((africa.first, africa.last, africa.series), (1990, 1990, 1));
-    assert_eq!(stats.unmapped.len(), 2);
+    assert_eq!(stats.unmapped.len(), 1);
     assert!(stats.aggregates.contains("World"));
     assert!(stats.aggregates.contains("China"));
 }
@@ -120,7 +121,7 @@ fn index_titles_units_and_order() {
         )
     };
     let expected = [
-        entry("fao-qcl-15-5510", "Wheat, production", "t", 1990, 1991, 5),
+        entry("fao-qcl-15-5510", "Wheat, production", "t", 1990, 1991, 6),
         entry(
             "fao-fo-1638-5622",
             "Sawdust, import value",

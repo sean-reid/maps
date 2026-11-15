@@ -96,3 +96,15 @@ test("each border edge knows the country across it, and coast knows none", () =>
   expect([...iceland.keys()]).toEqual([-1]);
   expect(across("LSO").get(index("ZAF"))).toBeGreaterThan(3);
 });
+
+test("every former unit the pipeline files under a code is one the page knows", () => {
+  const rows = readFileSync(
+    resolve(import.meta.dirname, "../../tools/pipeline/data/former.csv"),
+    "utf8",
+  )
+    .trim()
+    .split("\n")
+    .slice(1);
+  const known = ERAS.map((era) => era.code).sort();
+  expect(rows.map((row) => row.split(",")[1]).sort()).toEqual(known);
+});
