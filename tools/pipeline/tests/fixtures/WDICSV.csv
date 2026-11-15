@@ -29,3 +29,10 @@ Alpha,AAA,Land (area) of things (sq. km),H.NESTED,,,,,,,1
 "Beta, the",BBB,Land (area) of things (sq. km),H.NESTED,,,,,,,2
 Gamma,CCC,Land (area) of things (sq. km),H.NESTED,,,,,,,3
 Alpha,AAA,Unlisted,I.NOMETA,,,1,,,,
+Alpha,AAA,Early negatives (units),J.OLDNEG,-4,,1,,,,
+"Beta, the",BBB,Early negatives (units),J.OLDNEG,,,2,,,,
+Gamma,CCC,Early negatives (units),J.OLDNEG,,,3,,,,
+Alpha,AAA,Sparse widgets,K.DOTS,,,..,1,,,
+"Beta, the",BBB,Sparse widgets,K.DOTS,,,,2,1e99,,
+Gamma,CCC,Sparse widgets,K.DOTS,,,,3,,,
+Bad,XX,Sparse widgets,K.DOTS,,,,7,,,

@@ -1,4 +1,4 @@
-use crate::format::Series;
+use crate::format::{is_code, Series};
 use crate::index::Indicator;
 use crate::Result;
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -63,6 +63,13 @@ fn column(headers: &csv::StringRecord, name: &str) -> Result<usize> {
         .iter()
         .position(name_at)
         .ok_or_else(|| format!("missing column {name}").into())
+}
+
+fn parse_cell(cell: &str) -> f32 {
+    match cell.parse::<f32>() {
+        Ok(v) if v.is_finite() => v,
+        _ => f32::NAN,
+    }
 }
 
 fn field(record: &csv::StringRecord, at: usize) -> &str {
@@ -198,24 +205,20 @@ pub fn run(input: &Path, min_countries: usize) -> Result<(Vec<Indicator>, Stats)
             continue;
         };
         let country = field(&rec, country_col);
-        if !countries.contains(country) {
+        if !is_code(country) || !countries.contains(country) {
             continue;
         }
         let mut row = Vec::with_capacity(width);
         for &(at, _) in &year_cols {
             let cell = field(&rec, at);
-            row.push(if cell.is_empty() {
-                f32::NAN
-            } else {
-                cell.parse::<f32>()
-                    .map_err(|e| format!("{code} {country}: {cell:?}: {e}"))?
-            });
+            row.push(parse_cell(cell));
         }
         acc.rows.insert(country.to_string(), row);
     }
 
     let mut indicators = Vec::new();
     for (code, acc) in eligible {
+        // Rows only hold years from FIRST_YEAR on, so earlier negatives never count.
         if acc.rows.values().flatten().any(|&v| v < 0.0) {
             stats.negative += 1;
         } else if !enough_countries(&acc.rows, width, min_countries) {
@@ -239,7 +242,7 @@ pub fn run(input: &Path, min_countries: usize) -> Result<(Vec<Indicator>, Stats)
 
 #[cfg(test)]
 mod tests {
-    use super::{is_cc_by, is_total, split_name};
+    use super::{is_cc_by, is_total, parse_cell, split_name};
 
     #[test]
     fn name_with_unit() {
@@ -286,5 +289,13 @@ mod tests {
         assert!(is_cc_by("CC BY-4.0"));
         assert!(is_cc_by("CC BY 4.0"));
         assert!(!is_cc_by("SIPRI terms and conditions"));
+    }
+
+    #[test]
+    fn unusable_cells_are_missing() {
+        assert_eq!(parse_cell("2.5"), 2.5);
+        for cell in ["..", "abc", "1e99", "-1e99", "NaN", "inf"] {
+            assert!(parse_cell(cell).is_nan(), "{cell}");
+        }
     }
 }

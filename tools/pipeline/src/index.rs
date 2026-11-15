@@ -57,13 +57,20 @@ pub fn build(indicators: &[Indicator]) -> Index {
 
 /// Writes `series/<slug>.bin` and `index.json`; returns total bytes under `series/`.
 pub fn write(out: &Path, indicators: &[Indicator]) -> Result<u64> {
-    let dir = out.join("series");
-    fs::create_dir_all(&dir)?;
+    let mut files = Vec::with_capacity(indicators.len());
     let mut bytes = 0;
     for i in indicators {
-        let data = encode(&i.series);
+        let data = encode(&i.series).map_err(|e| format!("{}: {e}", i.code))?;
         bytes += data.len() as u64;
-        fs::write(dir.join(format!("{}.bin", slug(&i.code))), data)?;
+        files.push((format!("{}.bin", slug(&i.code)), data));
+    }
+    let dir = out.join("series");
+    if dir.exists() {
+        fs::remove_dir_all(&dir)?;
+    }
+    fs::create_dir_all(&dir)?;
+    for (name, data) in files {
+        fs::write(dir.join(name), data)?;
     }
     fs::write(
         out.join("index.json"),
@@ -110,5 +117,21 @@ mod tests {
             json,
             r#"{"version":1,"series":[{"slug":"wdi-x-y","title":"t","unit":"","source":"World Bank WDI","first":2000,"last":2001,"entities":2}]}"#
         );
+    }
+
+    #[test]
+    fn rerun_removes_stale_series() {
+        let out = std::env::temp_dir().join(format!("pipeline-stale-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&out);
+        fs::create_dir_all(out.join("series")).unwrap();
+        fs::write(out.join("series/old.bin"), b"x").unwrap();
+        write(&out, &[ind("X.Y", 2)]).unwrap();
+        let mut names: Vec<_> = fs::read_dir(out.join("series"))
+            .unwrap()
+            .map(|e| e.unwrap().file_name().into_string().unwrap())
+            .collect();
+        names.sort();
+        assert_eq!(names, ["wdi-x-y.bin"]);
+        fs::remove_dir_all(&out).unwrap();
     }
 }
