@@ -84,8 +84,15 @@ async function start(): Promise<void> {
   });
   document.documentElement.dataset.ready = "true";
 
-  const catalogue = await loadCatalogue();
-  if (!catalogue) return;
+  /** With nothing to size countries by, the plain map is the series: land area. */
+  const showLand = (): void => {
+    title.textContent = "Land area";
+    detail.textContent = "share of land outside Antarctica, Natural Earth";
+    canvas.removeAttribute("data-waiting");
+  };
+
+  const catalogue = await loadCatalogue().catch(() => undefined);
+  if (!catalogue) return showLand();
   // Assigned once playback exists, so a solver failure can stop it.
   let halt = (): void => undefined;
   const solver = new SolverClient(geo, (message) => {
@@ -94,7 +101,7 @@ async function start(): Promise<void> {
     readout.textContent = "The map stopped responding. Reload the page to carry on.";
   });
   const fallback = catalogue.series.find((s: SeriesMeta) => s.slug === OPENING);
-  if (!fallback) return;
+  if (!fallback) return showLand();
 
   /** The series on the map and where its years run. */
   interface Open {
@@ -137,6 +144,13 @@ async function start(): Promise<void> {
     root.dataset.year = String(to);
     root.dataset.rest = "false";
     writePath(`/${meta.slug}/${to}`);
+    // The first map appears already in shape; only a change from one map to another is motion.
+    if (canvas.hasAttribute("data-waiting")) {
+      map.jumpTo(points);
+      canvas.removeAttribute("data-waiting");
+      root.dataset.rest = "true";
+      return;
+    }
     void map.moveTo(points, feel, feel === BOUNCE).then(() => {
       if (root.dataset.series === meta.slug && root.dataset.year === String(to)) {
         root.dataset.rest = "true";
@@ -229,7 +243,10 @@ async function start(): Promise<void> {
     openPath(location.pathname).catch(report);
   });
 
-  await openPath(location.pathname);
+  await openPath(location.pathname).catch((error: unknown) => {
+    showLand();
+    report(error);
+  });
 }
 
 let pathTimer: ReturnType<typeof setTimeout> | undefined;

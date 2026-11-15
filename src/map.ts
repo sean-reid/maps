@@ -2,7 +2,7 @@ import { Camera } from "./camera.ts";
 import { draw, type Ink } from "./draw.ts";
 import type { Geometry } from "./geometry.ts";
 import { atomAt, bounds, measure, type Shape } from "./shapes.ts";
-import { type Feel, groupVertices, leadByChange, Springs } from "./spring.ts";
+import { type Feel, FOLLOW, groupVertices, leadByChange, Springs } from "./spring.ts";
 
 const TAP_SLOP_PX = 6;
 const FADE_MS = 220;
@@ -14,6 +14,8 @@ export interface MapView {
    * `announce` false keeps a picked country's readout from being read out again.
    */
   moveTo(points: Float64Array, feel: Feel, announce: boolean): Promise<void>;
+  /** Puts the map at new vertex positions with no transition. */
+  jumpTo(points: Float64Array): void;
   /** Marks atoms to draw hatched, one byte per atom. */
   setMissing(missing: Uint8Array | undefined): void;
   shapes(): Shape[];
@@ -230,6 +232,15 @@ export function createMap(
   resize();
 
   return {
+    jumpTo(next) {
+      springs.aim(next, FOLLOW);
+      springs.snap();
+      moving = false;
+      ghost = undefined;
+      shapes = measure(geo, points);
+      onShow(active, announced);
+      paint();
+    },
     moveTo(next, feel, announce) {
       if (still.matches) {
         // A fade already under way keeps its starting picture, so quick changes do not flicker.

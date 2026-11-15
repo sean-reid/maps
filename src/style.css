@@ -232,6 +232,10 @@ main {
   cursor: crosshair;
 }
 
+#map[data-waiting] {
+  visibility: hidden;
+}
+
 #map:focus-visible {
   outline-offset: -2px;
 }
