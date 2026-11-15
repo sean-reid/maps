@@ -24,7 +24,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - run: npm ci
       - run: cargo run --release -p pipeline -- fetch-wdi --to .cache/wdi
-      - run: cargo run --release -p pipeline -- wdi --input .cache/wdi --out .cache/out
+      - run: cargo run --release -p pipeline -- fetch-fao --to .cache/fao
+      - run: cargo run --release -p pipeline -- build --wdi .cache/wdi --fao .cache/fao --out .cache/out
       - name: name the version
         run: echo "VERSION=v$(date -u +%F)-${{ github.run_number }}-${{ github.run_attempt }}" >> "$GITHUB_ENV"
       - name: upload

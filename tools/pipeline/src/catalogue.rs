@@ -111,10 +111,12 @@ mod tests {
 
     use super::*;
     use crate::format::Series;
+    use crate::index::Source;
     use crate::rates::plan;
 
     fn item<'a>(code: &str, countries: usize, plan: &'a Plan) -> Derived<'a> {
         let indicator = Indicator {
+            source: Source::Wdi,
             code: code.into(),
             title: plan.title.clone(),
             unit: plan.unit.clone(),

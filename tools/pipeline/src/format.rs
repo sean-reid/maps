@@ -8,6 +8,7 @@ pub fn is_code(code: &str) -> bool {
     code.len() == 3 && code.is_ascii()
 }
 
+#[derive(Debug)]
 /// One indicator: `values` is row-major by entity, `codes.len() * years` long.
 pub struct Series {
     pub codes: Vec<String>,

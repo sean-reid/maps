@@ -6,9 +6,9 @@ use std::time::Duration;
 
 pub const URL: &str = "https://databank.worldbank.org/data/download/WDI_CSV.zip";
 const WANTED: [&str; 3] = ["WDICSV.csv", "WDISeries.csv", "WDICountry.csv"];
-const MAX_DOWNLOAD: u64 = 1 << 30;
-const MAX_ENTRY: u64 = 2 << 30;
-const TIMEOUT: Duration = Duration::from_secs(600);
+pub(crate) const MAX_DOWNLOAD: u64 = 1 << 30;
+pub(crate) const MAX_ENTRY: u64 = 2 << 30;
+pub(crate) const TIMEOUT: Duration = Duration::from_secs(600);
 
 pub fn fetch(to: &Path) -> Result<()> {
     fs::create_dir_all(to)?;
