@@ -23,6 +23,22 @@ if (!existsSync(cached) || sha256(readFileSync(cached)) !== SHA256) {
 }
 const source = readFileSync(cached);
 
+interface Feature {
+  properties: Record<string, string | number>;
+}
+const features = (JSON.parse(source.toString()) as { features: Feature[] }).features;
+const numeric = new Map<string, string>();
+for (const { properties } of features) {
+  if (properties.ADM0_A3 === "ATA") continue;
+  const eh = String(properties.ISO_A3_EH);
+  const iso = eh && eh !== "-99" ? eh : String(properties.ADM0_A3);
+  const code = String(properties.ISO_N3_EH).padStart(3, "0");
+  if (!/^\d{3}$/.test(code)) continue;
+  const seen = numeric.get(code);
+  if (seen && seen !== iso) throw new Error(`M49 ${code} maps to ${seen} and ${iso}`);
+  numeric.set(code, iso);
+}
+
 const commands = [
   "-i in.geojson",
   `-filter 'ADM0_A3 !== "ATA"'`,
@@ -54,6 +70,9 @@ for (const { properties } of atoms) {
 const points = topology.arcs.reduce((n, arc) => n + arc.length, 0);
 
 writeFileSync(resolve(root, "public/geo/atoms.json"), text);
+const table = [...numeric].sort(([a], [b]) => a.localeCompare(b));
+const m49 = ["m49,iso3", ...table.map(([code, iso]) => `${code},${iso}`)].join("\n") + "\n";
+writeFileSync(resolve(root, "tools/pipeline/data/m49.csv"), m49);
 console.log(
   `${atoms.length} atoms, ${topology.arcs.length} arcs, ${points} points, ${text.length} bytes`,
 );
