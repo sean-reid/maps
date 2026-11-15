@@ -53,18 +53,51 @@ test("tapping a country shows its name and share, tapping the sea clears it", as
   await expect(page.locator("#readout")).toBeEmpty();
 });
 
-test("zooming in keeps the pointed country under the pointer", async ({ page }, info) => {
+test("zooming in keeps the pointed country still and moves the rest", async ({ page }, info) => {
   const box = await open(page);
   const india = screenOf("IND", box);
+  const australia = screenOf("AUS", box);
   await page.mouse.move(india.x, india.y);
   await page.mouse.wheel(0, -900);
   await page.mouse.click(india.x, india.y);
   await expect(page.locator("#readout")).toContainText("India");
   await page.screenshot({ path: info.outputPath("zoomed.png") });
+  await page.mouse.click(australia.x, australia.y);
+  await expect(page.locator("#readout")).not.toContainText("Australia");
+  await page.locator("#map").press("Escape");
   await page.locator("#map").press("0");
-  await page.mouse.click(india.x, india.y);
-  await page.mouse.click(india.x, india.y);
-  await expect(page.locator("#readout")).toContainText("India");
+  await page.mouse.click(australia.x, australia.y);
+  await expect(page.locator("#readout")).toContainText("Australia");
+});
+
+test("the keyboard zooms, picks the country at the centre and clears it", async ({ page }) => {
+  const box = await open(page);
+  const map = page.locator("#map");
+  const brazil = screenOf("BRA", box);
+  await page.mouse.move(brazil.x, brazil.y);
+  await page.mouse.wheel(0, -2000);
+  await page.mouse.move(box.x + 2, box.y + 2);
+  await map.focus();
+  await map.press("Enter");
+  const first = await page.locator("#readout b").textContent();
+  expect(first).toBeTruthy();
+  await expect(page.locator("#readout")).toHaveAttribute("aria-live", "polite");
+  await map.press("Escape");
+  await expect(page.locator("#readout")).toBeEmpty();
+  await map.press("Control+0");
+  await map.press("Enter");
+  await expect(page.locator("#readout b")).toHaveText(first ?? "");
+});
+
+test("a touch tap pins a country and a second tap lets it go", async ({ page, hasTouch }) => {
+  test.skip(!hasTouch, "needs a touch screen");
+  const box = await open(page);
+  const brazil = screenOf("BRA", box);
+  await page.touchscreen.tap(brazil.x, brazil.y);
+  await expect(page.locator("#readout")).toContainText("Brazil");
+  await expect(page.locator("#readout")).toHaveText(/Brazil \d/);
+  await page.touchscreen.tap(brazil.x, brazil.y);
+  await expect(page.locator("#readout")).toBeEmpty();
 });
 
 test("health endpoint answers", async ({ request }) => {

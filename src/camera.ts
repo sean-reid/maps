@@ -14,6 +14,8 @@ export class Camera {
   private height = 1;
 
   fit(map: Box, width: number, height: number, margin = 8): void {
+    this.panX *= width / this.width;
+    this.panY *= height / this.height;
     this.width = width;
     this.height = height;
     const [w, h] = [map.x1 - map.x0, map.y1 - map.y0];

@@ -26,9 +26,10 @@ export function draw(
   camera: Camera,
   active: number,
   ink: Ink,
-  dpr: number,
 ): void {
   const { width, height } = ctx.canvas;
+  // The backing store keeps the density it was sized at, whatever the window reports now.
+  const dpr = width / (ctx.canvas.getBoundingClientRect().width || width);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.fillStyle = ink.paper;
   ctx.fillRect(0, 0, width / dpr, height / dpr);

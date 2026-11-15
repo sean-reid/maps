@@ -52,7 +52,7 @@ export function measure(geo: Geometry, points: Float64Array): Shape[] {
     if (Math.abs(a) > (largest[atom] ?? 0)) {
       largest[atom] = Math.abs(a);
       shape.anchor = {
-        x: cx / (6 * a),
+        x: widestSpan(points, s, e, cy / (6 * a), cx / (6 * a)),
         y: cy / (6 * a),
         width: ring.x1 - ring.x0,
         height: ring.y1 - ring.y0,
@@ -61,6 +61,28 @@ export function measure(geo: Geometry, points: Float64Array): Shape[] {
   }
   shapes.forEach((shape, i) => (shape.area = Math.abs(signed[i] ?? 0)));
   return shapes;
+}
+
+/** The centroid's x if it lies inside the ring at height y, else the middle of the ring's widest span there. */
+function widestSpan(points: Float64Array, s: number, e: number, y: number, x: number): number {
+  const xs: number[] = [];
+  for (let i = s, j = e - 1; i < e; j = i++) {
+    const [xi, yi] = [points[2 * i] ?? 0, points[2 * i + 1] ?? 0];
+    const [xj, yj] = [points[2 * j] ?? 0, points[2 * j + 1] ?? 0];
+    if (yi > y !== yj > y) xs.push(xi + ((y - yi) / (yj - yi)) * (xj - xi));
+  }
+  xs.sort((a, b) => a - b);
+  let best = x;
+  let widest = 0;
+  for (let i = 0; i + 1 < xs.length; i += 2) {
+    const [a, b] = [xs[i] ?? 0, xs[i + 1] ?? 0];
+    if (x >= a && x <= b) return x;
+    if (b - a > widest) {
+      widest = b - a;
+      best = (a + b) / 2;
+    }
+  }
+  return best;
 }
 
 export function bounds(shapes: Shape[]): Box {

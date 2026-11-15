@@ -34,6 +34,13 @@ test("a point resolves to the country drawn there, and the sea to none", () => {
   expect(at(2, 2)).toBeUndefined();
 });
 
+test("a label anchor lies inside its country, however the country bends", () => {
+  for (const iso of ["CHL", "NOR", "VNM", "HRV", "SOM", "JPN", "IDN", "USA", "MYS"]) {
+    const anchor = shapes[index(iso)]?.anchor;
+    expect(at(anchor?.x ?? 0, anchor?.y ?? 0), iso).toBe(iso);
+  }
+});
+
 test("an enclave wins over the country around it", () => {
   const lesotho = shapes[index("LSO")]?.anchor;
   expect(at(lesotho?.x ?? 0, lesotho?.y ?? 0)).toBe("LSO");
@@ -49,6 +56,7 @@ test("the camera fits the map, round-trips points, and keeps the map on screen",
   expect(right).toBeLessThanOrEqual(792 + 1e-9);
 
   const corner = camera.toGrid(0, 0);
+  const far = camera.toGrid(800, 400);
   const before = camera.toGrid(300, 150);
   camera.zoomAt(300, 150, 3);
   const after = camera.toGrid(300, 150);
@@ -61,6 +69,9 @@ test("the camera fits the map, round-trips points, and keeps the map on screen",
   camera.panBy(1e6, 1e6);
   expect(camera.toGrid(0, 0)[0]).toBeCloseTo(corner[0], 9);
   expect(camera.toGrid(0, 0)[1]).toBeCloseTo(corner[1], 9);
+  camera.panBy(-1e6, -1e6);
+  expect(camera.toGrid(800, 400)[0]).toBeCloseTo(far[0], 9);
+  expect(camera.toGrid(800, 400)[1]).toBeCloseTo(far[1], 9);
   camera.zoomAt(400, 200, 1e-6);
   expect(camera.zoom).toBe(1);
   expect(camera.toScreen(map.x0, map.y0)[0]).toBeCloseTo(left, 9);
