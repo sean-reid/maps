@@ -20,8 +20,21 @@
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
-    <main>
+    <header>
       <h1>maps</h1>
+    </header>
+    <main>
+      <section class="series">
+        <h2>Land area</h2>
+        <p>share of land outside Antarctica, Natural Earth</p>
+      </section>
+      <canvas
+        id="map"
+        tabindex="0"
+        role="application"
+        aria-label="World map. Arrow keys pan, plus and minus zoom, 0 resets, Enter picks the country at the centre, Escape clears it."
+      ></canvas>
+      <p id="readout" class="readout" aria-live="off"></p>
     </main>
     <footer>
       <a href="https://github.com/sean-reid/maps">source</a>
