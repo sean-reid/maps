@@ -78,3 +78,22 @@ fn bad_input_is_refused() {
         .solve_from(&[1.0], &Options::default(), &pts[..6], 0)
         .is_err());
 }
+
+#[test]
+fn a_region_without_rings_does_not_block_convergence() {
+    let pts = vec![2.0, 2.0, 6.0, 2.0, 6.0, 6.0, 2.0, 6.0];
+    let c = Cartogram::new(8, 8, 2, vec![0, 4], vec![0], pts).unwrap();
+    let (_, stats) = c.solve(&[1.0, 1.0], &Options::default()).unwrap();
+    assert_eq!(stats.iters, 0);
+    assert!(stats.max_err < 0.01);
+}
+
+#[test]
+fn a_huge_blur_skip_stays_finite() {
+    let c = square(8, 8);
+    let start = c.points().to_vec();
+    let (out, _) = c
+        .solve_from(&[1.0], &Options::default(), &start, usize::MAX / 2)
+        .unwrap();
+    assert!(out.iter().all(|v| v.is_finite()));
+}

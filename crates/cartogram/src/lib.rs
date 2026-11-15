@@ -127,7 +127,8 @@ impl Cartogram {
     }
 
     /// Target areas for `values` (NaN = missing), preserving total area.
-    /// Floored and missing regions hold their floor; the rest share what is left by value.
+    /// Floored and missing regions hold their floor, regions without area get none,
+    /// and the rest share what is left by value.
     pub fn targets(&self, values: &[f64], opt: &Options) -> Vec<f64> {
         assert_eq!(values.len(), self.n_regions, "one value per region");
         let a0 = self.areas(&self.pts);
@@ -140,7 +141,9 @@ impl Cartogram {
             .iter()
             .enumerate()
             .map(|(i, v)| {
-                if v.is_finite() {
+                if a0[i] <= 0.0 {
+                    Some(0.0)
+                } else if v.is_finite() {
                     None
                 } else {
                     Some(opt.missing_frac * a0[i])
@@ -226,7 +229,7 @@ impl Cartogram {
                 .map(|(t, a)| t / a.max(1e-9))
                 .collect();
             self.rasterize(&pts, &dens, &mut rho);
-            let sigma = opt.blur0 * 0.5f64.powi((it + skip_blur) as i32);
+            let sigma = opt.blur0 * 0.5f64.powi((it + skip_blur).min(64) as i32);
             let mean_rho = self.poisson(&mut rho, &mut phi, if sigma > 0.2 { sigma } else { 0.0 });
             self.gradient(&phi, &mut jx, &mut jy);
             let flow = Flow {
@@ -433,6 +436,10 @@ fn errors(area: &[f64], target: &[f64]) -> (f64, f64) {
     let mut mx: f64 = 0.0;
     let mut mean = 0.0;
     for (a, t) in area.iter().zip(target) {
+        // A region with no area has no vertices the flow could move apart.
+        if *a <= 0.0 {
+            continue;
+        }
         let e = (a - t).abs() / t;
         mx = mx.max(e);
         mean += e * t / total;
