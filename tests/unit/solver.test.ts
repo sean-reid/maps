@@ -52,7 +52,9 @@ test("a warm start for the next year lands close to a cold solve", () => {
   const cold2019 = solver.solve(valuesAt(population, rows, 2019)).points;
   const warm = solver.solve(valuesAt(population, rows, 2020), cold2019);
   expect(warm.meanError).toBeLessThan(0.02);
-  const cold = solver.solve(valuesAt(population, rows, 2020)).points;
+  const coldSolve = solver.solve(valuesAt(population, rows, 2020));
+  expect(coldSolve.meanError).toBeLessThan(0.02);
+  const cold = coldSolve.points;
   let worst = 0;
   let sum = 0;
   for (let i = 0; i < cold.length; i++) {

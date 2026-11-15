@@ -40,11 +40,11 @@ impl Default for Options {
 pub struct Stats {
     pub iters: usize,
     pub steps: usize,
-    /// Largest relative area error over regions.
+    /// Largest relative area error over regions. Regions smaller than a grid cell keep this high.
     pub max_err: f64,
     /// Relative area error weighted by target area.
     pub mean_err: f64,
-    /// An advection hit its step cap before the flow finished.
+    /// An advection hit its step cap before the flow finished. False says nothing about accuracy.
     pub truncated: bool,
 }
 
