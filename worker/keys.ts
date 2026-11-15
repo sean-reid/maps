@@ -1,4 +1,4 @@
-const VERSION = /^v\d{4}-\d{2}-\d{2}(-\d+)?$/;
+const VERSION = /^v\d{4}-\d{2}-\d{2}(-\d+){0,2}$/;
 const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
 export function isVersion(version: string): boolean {

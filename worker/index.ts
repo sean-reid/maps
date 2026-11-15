@@ -1,4 +1,4 @@
-import { dataKey } from "./keys.ts";
+import { dataKey, isVersion } from "./keys.ts";
 
 interface Env {
   DATA: R2Bucket;
@@ -13,8 +13,13 @@ async function currentVersion(env: Env): Promise<string | undefined> {
   if (pointer && Date.now() - pointer.read < POINTER_TTL_MS) return pointer.version;
   const object = await env.DATA.get(POINTER);
   if (!object) return undefined;
-  const { version } = await object.json<{ version?: unknown }>();
-  if (typeof version !== "string" || !dataKey(`${version}/index.json`)) return undefined;
+  let version: unknown;
+  try {
+    ({ version } = await object.json<{ version?: unknown }>());
+  } catch {
+    return undefined;
+  }
+  if (typeof version !== "string" || !isVersion(version)) return undefined;
   pointer = { version, read: Date.now() };
   return version;
 }
@@ -23,31 +28,47 @@ function notFound(): Response {
   return Response.json({ error: "not found" }, { status: 404 });
 }
 
-async function index(env: Env): Promise<Response> {
+/** Answers from the bucket: headers only for HEAD, 304 when the client's copy is current. */
+async function serve(
+  request: Request,
+  env: Env,
+  key: string,
+  headers: Record<string, string>,
+): Promise<Response | undefined> {
+  const object =
+    request.method === "HEAD"
+      ? await env.DATA.head(key)
+      : await env.DATA.get(key, { onlyIf: request.headers });
+  if (!object) return undefined;
+  const all = { ...headers, etag: object.httpEtag };
+  const body = "body" in object ? (object as R2ObjectBody).body : null;
+  const status = body || request.method === "HEAD" ? 200 : 304;
+  return new Response(body, { status, headers: all });
+}
+
+async function index(request: Request, env: Env): Promise<Response> {
   const version = await currentVersion(env);
-  const object = version ? await env.DATA.get(`${version}/index.json`) : null;
-  if (!version || !object) return Response.json({ error: "no data yet" }, { status: 503 });
-  return new Response(object.body, {
-    headers: {
+  const found =
+    version &&
+    (await serve(request, env, `${version}/index.json`, {
       "content-type": "application/json",
       "cache-control": "public, max-age=300",
       "x-data-version": version,
-      etag: object.httpEtag,
-    },
-  });
+    }));
+  if (found) return found;
+  pointer = undefined;
+  return Response.json({ error: "no data yet" }, { status: 503 });
 }
 
-async function data(env: Env, path: string): Promise<Response> {
+async function data(request: Request, env: Env, path: string): Promise<Response> {
   const key = dataKey(path);
-  const object = key ? await env.DATA.get(key) : null;
-  if (!object) return notFound();
-  return new Response(object.body, {
-    headers: {
+  const found =
+    key &&
+    (await serve(request, env, key, {
       "content-type": "application/octet-stream",
       "cache-control": "public, max-age=31536000, immutable",
-      etag: object.httpEtag,
-    },
-  });
+    }));
+  return found || notFound();
 }
 
 export default {
@@ -57,8 +78,9 @@ export default {
       return Response.json({ error: "method not allowed" }, { status: 405 });
     }
     if (pathname === "/api/health") return Response.json({ ok: true });
-    if (pathname === "/api/index") return index(env);
-    if (pathname.startsWith("/api/data/")) return data(env, pathname.slice("/api/data/".length));
+    if (pathname === "/api/index") return index(request, env);
+    if (pathname.startsWith("/api/data/"))
+      return data(request, env, pathname.slice("/api/data/".length));
     return notFound();
   },
 };

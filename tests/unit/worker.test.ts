@@ -22,7 +22,9 @@ test("only paths the pipeline writes map to bucket keys", () => {
   }
 });
 
-test("a version is a date with an optional run number", () => {
+test("a version is a date with an optional run and attempt number", () => {
+  expect(isVersion("v2026-11-15-3-2")).toBe(true);
+  expect(isVersion("v2026-11-15-3-2-1")).toBe(false);
   expect(isVersion("v2026-11-15")).toBe(true);
   expect(isVersion("v2026-11-15-3")).toBe(true);
   expect(isVersion("v2026-11-15/x")).toBe(false);

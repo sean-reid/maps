@@ -41,3 +41,21 @@ test("anything else in the bucket stays out of reach", async ({ request }) => {
   }
   expect((await request.post("/api/index")).status()).toBe(405);
 });
+
+test("a current copy is answered with 304 and HEAD carries no body", async ({ request }) => {
+  const path = "/api/data/v2026-01-01/series/wdi-sp-pop-totl.bin";
+  const first = await request.get(path);
+  const etag = first.headers()["etag"] ?? "";
+  expect(etag).not.toBe("");
+  const again = await request.get(path, { headers: { "if-none-match": etag } });
+  expect(again.status()).toBe(304);
+  expect((await again.body()).length).toBe(0);
+  const stale = await request.get(path, { headers: { "if-none-match": '"other"' } });
+  expect(stale.status()).toBe(200);
+
+  const head = await request.head("/api/index");
+  expect(head.status()).toBe(200);
+  expect(head.headers()["x-data-version"]).toBe("v2026-01-01");
+  expect((await head.body()).length).toBe(0);
+  expect((await request.head("/api/data/v2026-01-01/series/nope.bin")).status()).toBe(404);
+});
