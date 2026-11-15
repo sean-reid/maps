@@ -1,4 +1,5 @@
 import type { Series } from "./data.ts";
+import { ERAS } from "./eras.ts";
 import type { Atom } from "./geometry.ts";
 
 /** Codes a source uses for a country the map knows under another. */
@@ -49,13 +50,15 @@ export interface Span {
 export function coveredYears(series: Series): Span {
   const counts = new Array<number>(series.years).fill(0);
   for (let row = 0; row < series.codes.length; row++) {
+    // A former unit's row stands for all of its members.
+    const weight = ERAS.find((era) => era.code === series.codes[row])?.members.length ?? 1;
     let [from, to] = [-1, -1];
     for (let y = 0; y < series.years; y++) {
       if (!Number.isFinite(series.values[row * series.years + y])) continue;
       if (from < 0) from = y;
       to = y;
     }
-    for (let y = from; y >= 0 && y <= to; y++) counts[y] = (counts[y] ?? 0) + 1;
+    for (let y = from; y >= 0 && y <= to; y++) counts[y] = (counts[y] ?? 0) + weight;
   }
   const most = Math.max(0, ...counts);
   const enough = (share: number): number[] =>
