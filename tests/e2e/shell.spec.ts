@@ -4,8 +4,8 @@ import { expect, test, type Page } from "@playwright/test";
 import { Camera } from "../../src/camera.ts";
 import { layout, type Topology } from "../../src/geometry.ts";
 import { decodeSeries } from "../../src/series.ts";
-import { bounds, measure } from "../../src/shapes.ts";
-import { createSolver } from "../../src/solver/glue.ts";
+import { bounds, measure, type Shape } from "../../src/shapes.ts";
+import { createSolver, type Solver } from "../../src/solver/glue.ts";
 import { latestFullYear, rowsFor, valuesAt } from "../../src/values.ts";
 
 const root = resolve(import.meta.dirname, "../..");
@@ -13,16 +13,28 @@ const geo = layout(
   JSON.parse(readFileSync(resolve(root, "public/geo/atoms.json"), "utf8")) as Topology,
 );
 const home = bounds(measure(geo, geo.points));
-let shapes = measure(geo, geo.points);
+const population = decodeSeries(
+  new Uint8Array(readFileSync(resolve(root, "tests/fixtures/data/series/wdi-sp-pop-totl.bin")))
+    .buffer,
+);
+const rows = rowsFor(population, geo.atoms);
+const latest = latestFullYear(population);
+let solver: Solver;
+const solved = new Map<number, Shape[]>();
 
 // The page solves the fixture population with the same WASM, so the test can know where countries end up.
 test.beforeAll(async () => {
-  const file = readFileSync(resolve(root, "tests/fixtures/data/series/wdi-sp-pop-totl.bin"));
-  const population = decodeSeries(new Uint8Array(file).buffer);
-  const solver = await createSolver(readFileSync(resolve(root, "src/solver/cartogram.wasm")), geo);
-  const values = valuesAt(population, rowsFor(population, geo.atoms), latestFullYear(population));
-  shapes = measure(geo, solver.solve(values).points);
+  solver = await createSolver(readFileSync(resolve(root, "src/solver/cartogram.wasm")), geo);
 });
+
+function shapesAt(year: number): Shape[] {
+  let shapes = solved.get(year);
+  if (!shapes) {
+    shapes = measure(geo, solver.solve(valuesAt(population, rows, year)).points);
+    solved.set(year, shapes);
+  }
+  return shapes;
+}
 
 async function open(page: Page, path = "/", motion: "reduce" | "no-preference" = "reduce") {
   await page.emulateMedia({ reducedMotion: motion });
@@ -37,12 +49,35 @@ async function open(page: Page, path = "/", motion: "reduce" | "no-preference" =
   return box;
 }
 
-function screenOf(iso: string, box: { x: number; y: number; width: number; height: number }) {
+function screenOf(
+  iso: string,
+  box: { x: number; y: number; width: number; height: number },
+  year = latest,
+) {
+  const shapes = shapesAt(year);
   const camera = new Camera();
   camera.fit(bounds(shapes), box.width, box.height);
   const anchor = shapes[geo.atoms.findIndex((a) => a.iso === iso)]?.anchor;
   const [x, y] = camera.toScreen(anchor?.x ?? 0, anchor?.y ?? 0);
   return { x: box.x + x, y: box.y + y };
+}
+
+/** Ink in the top and bottom rows of the canvas, which a map inside the view leaves blank. */
+function edgeInk(page: Page): Promise<number> {
+  return page.evaluate(() => {
+    const canvas = document.querySelector("#map") as HTMLCanvasElement;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return -1;
+    const paper = ctx.getImageData(1, canvas.height - 2, 1, 1).data;
+    let count = 0;
+    for (const y of [0, 1, 2, canvas.height - 3, canvas.height - 2, canvas.height - 1]) {
+      const row = ctx.getImageData(0, y, canvas.width, 1).data;
+      for (let i = 0; i < row.length; i += 4) {
+        if (Math.abs((row[i] ?? 0) - (paper[0] ?? 0)) > 24) count++;
+      }
+    }
+    return count;
+  });
 }
 
 test("the map fills the page between the title and the footer", async ({ page }, info) => {
@@ -153,7 +188,7 @@ test("a link to a series and year opens on that year", async ({ page }) => {
   await expect(page.locator("#year-label")).toHaveText("1975");
   await expect(page.locator("#year")).toHaveValue("1975");
   await expect(page).toHaveURL(/\/wdi-sp-pop-totl\/1975$/);
-  const china = screenOf("CHN", box);
+  const china = screenOf("CHN", box, 1975);
   await page.mouse.click(china.x, china.y);
   await expect(page.locator("#readout")).toHaveText(
     /^China 9\d\d,\d{3},\d{3} 2\d\.\d% of the world$/,
@@ -168,7 +203,7 @@ test("an unknown path opens the default series", async ({ page }) => {
 
 test("the year slider steps by keyboard and the readout follows", async ({ page }) => {
   const box = await open(page, "/wdi-sp-pop-totl/2000");
-  const india = screenOf("IND", box);
+  const india = screenOf("IND", box, 2000);
   await page.mouse.click(india.x, india.y);
   const before = await page.locator("#readout .num").first().textContent();
   await page.locator("#year").focus();
@@ -223,7 +258,8 @@ test("with motion on, a change of year springs and comes to rest where the solve
   await page.keyboard.press("ArrowLeft");
   await expect(page.locator("html")).toHaveAttribute("data-year", String(before - 1));
   await expect(page.locator("html")).toHaveAttribute("data-rest", "true");
-  const india = screenOf("IND", box);
+  expect(await edgeInk(page)).toBe(0);
+  const india = screenOf("IND", box, before - 1);
   await page.mouse.click(india.x, india.y);
   await expect(page.locator("#readout")).toContainText("India");
   await page.screenshot({ path: info.outputPath("rest.png") });
@@ -274,21 +310,7 @@ test("if the first series cannot load, the plain map shows with a message", asyn
 test("the solved map sits wholly inside the view", async ({ page }) => {
   await open(page);
   // Before the view followed the solved map, the far north ran off the top of the canvas.
-  const inked = await page.evaluate(() => {
-    const canvas = document.querySelector("#map") as HTMLCanvasElement;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return -1;
-    const paper = ctx.getImageData(1, canvas.height - 2, 1, 1).data;
-    let count = 0;
-    for (const y of [0, 1, 2, canvas.height - 3, canvas.height - 2, canvas.height - 1]) {
-      const row = ctx.getImageData(0, y, canvas.width, 1).data;
-      for (let i = 0; i < row.length; i += 4) {
-        if (Math.abs((row[i] ?? 0) - (paper[0] ?? 0)) > 24) count++;
-      }
-    }
-    return count;
-  });
-  expect(inked).toBe(0);
+  expect(await edgeInk(page)).toBe(0);
 });
 
 test("without data the page falls back to land area", async ({ page }) => {

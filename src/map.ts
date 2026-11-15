@@ -46,14 +46,21 @@ export function createMap(
   // The box the camera frames. It follows the solved map, which can reach well past the plain one.
   let view = bounds(shapes);
   let goalView = view;
-  let size = { width: 1, height: 1 };
+  let fitted: Box | undefined;
+  let size = { width: 0, height: 0 };
+
+  /** Fits the camera to `view`, unless the visitor has zoomed in: their place on the map is theirs. */
+  const refit = (): void => {
+    if (fitted === view || camera.zoom > 1 || size.width <= 0) return;
+    camera.fit(view, size.width, size.height);
+    fitted = view;
+  };
 
   const frame = (box: Box, instant: boolean): void => {
+    if (![box.x0, box.y0, box.x1, box.y1].every(Number.isFinite)) return;
     goalView = box;
-    if (instant) {
-      view = box;
-      camera.fit(view, size.width, size.height);
-    }
+    if (instant) view = box;
+    refit();
   };
   let active = -1;
   let pinned = false;
@@ -97,9 +104,9 @@ export function createMap(
           Math.abs(view.x1 - goalView.x1),
           Math.abs(view.y1 - goalView.y1),
         );
-        if (gap < 0.02) view = goalView;
-        camera.fit(view, size.width, size.height);
+        if (!(gap >= 0.02)) view = goalView;
       }
+      refit();
       const fade = ghost ? Math.min(1, (now - ghost.from) / FADE_MS) : 1;
       if (ghost && fade < 1) {
         const under = { alpha: 1 - fade, clear: true };
@@ -127,7 +134,9 @@ export function createMap(
     canvas.width = Math.round(width * dpr);
     canvas.height = Math.round(height * dpr);
     size = { width, height };
+    fitted = undefined;
     camera.fit(view, width, height);
+    fitted = view;
     paint();
   };
 
