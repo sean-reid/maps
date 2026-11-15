@@ -7,7 +7,9 @@
   "scripts": {
     "dev": "wrangler dev",
     "dev:web": "vite",
-    "build": "vite build",
+    "wasm": "cargo build --release --target wasm32-unknown-unknown -p cartogram && cp target/wasm32-unknown-unknown/release/cartogram.wasm src/solver/cartogram.wasm",
+    "build": "npm run wasm && vite build",
+    "pretest": "npm run wasm",
     "typecheck": "tsc --noEmit && tsc -p worker/tsconfig.json",
     "lint": "eslint src worker scripts tools tests vite.config.ts playwright.config.ts eslint.config.js prettier.config.js --max-warnings 0",
     "format": "prettier --write .",
