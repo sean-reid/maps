@@ -20,8 +20,21 @@
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
-    <main>
+    <header>
       <h1>maps</h1>
+    </header>
+    <main>
+      <section class="series">
+        <h2>Land area</h2>
+        <p>share of the world's land, Natural Earth</p>
+      </section>
+      <canvas
+        id="map"
+        tabindex="0"
+        role="img"
+        aria-label="World map. Scroll or pinch to zoom, drag to pan, tap a country for its figures."
+      ></canvas>
+      <p id="readout" class="readout" aria-live="polite"></p>
     </main>
     <footer>
       <a href="https://github.com/sean-reid/maps">source</a>
