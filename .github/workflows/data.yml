@@ -1,0 +1,44 @@
+name: data
+
+on:
+  schedule:
+    - cron: "17 5 3 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: data
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: cargo run --release -p pipeline -- fetch-wdi --to .cache/wdi
+      - run: cargo run --release -p pipeline -- wdi --input .cache/wdi --out .cache/out
+      - name: name the version
+        run: echo "VERSION=v$(date -u +%F)-${{ github.run_number }}-${{ github.run_attempt }}" >> "$GITHUB_ENV"
+      - name: upload
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID || '860e267e26cbf52bdca301d114b3c203' }}
+        run: node scripts/upload.ts .cache/out "$VERSION"
+      - name: wait for the site to serve the new version
+        run: |
+          for try in $(seq 1 18); do
+            if curl -fsS -D - -o /dev/null https://maps.dwainosaur.com/api/index | tr -d '\r' | grep -ix "x-data-version: $VERSION" > /dev/null; then
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::the site does not report $VERSION"
+          exit 1

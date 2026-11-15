@@ -1,12 +1,32 @@
 import { expect, test } from "vitest";
-import worker from "../../worker/index.ts";
+import { dataKey, isVersion } from "../../worker/keys.ts";
 
-test("health answers ok", async () => {
-  const res = worker.fetch(new Request("https://maps.test/api/health"));
-  expect(res.status).toBe(200);
-  expect(await res.text()).toBe('{"ok":true}');
+test("only paths the pipeline writes map to bucket keys", () => {
+  expect(dataKey("v2026-11-15/series/wdi-sp-pop-totl.bin")).toBe(
+    "v2026-11-15/series/wdi-sp-pop-totl.bin",
+  );
+  expect(dataKey("v2026-11-15-2/index.json")).toBe("v2026-11-15-2/index.json");
+  for (const path of [
+    "current.json",
+    "v2026-11-15/current.json",
+    "v2026-11-15/series/../../current.json",
+    "v2026-11-15/series/a/b.bin",
+    "v2026-11-15/series/UPPER.bin",
+    "v2026-11-15/series/.bin",
+    "v2026-11-15/series/a.json",
+    "2026-11-15/series/a.bin",
+    "v2026-11-15/series/a.bin/",
+    "",
+  ]) {
+    expect(dataKey(path), path).toBeUndefined();
+  }
 });
 
-test("unknown api paths are 404", () => {
-  expect(worker.fetch(new Request("https://maps.test/api/nope")).status).toBe(404);
+test("a version is a date with an optional run and attempt number", () => {
+  expect(isVersion("v2026-11-15-3-2")).toBe(true);
+  expect(isVersion("v2026-11-15-3-2-1")).toBe(false);
+  expect(isVersion("v2026-11-15")).toBe(true);
+  expect(isVersion("v2026-11-15-3")).toBe(true);
+  expect(isVersion("v2026-11-15/x")).toBe(false);
+  expect(isVersion("latest")).toBe(false);
 });

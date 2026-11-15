@@ -45,6 +45,8 @@ jobs:
             exit 1
           fi
       - run: npm run build
+      - name: create the data bucket on first deploy
+        run: npx wrangler r2 bucket info maps > /dev/null 2>&1 || npx wrangler r2 bucket create maps
       - run: npx wrangler deploy
       - name: smoke
         run: |
