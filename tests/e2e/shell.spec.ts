@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("the page loads with its one sentence", async ({ page }, info) => {
+test("the page loads", async ({ page }, info) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "maps" })).toBeVisible();
   await expect(page.locator("html")).toHaveAttribute("data-ready", "true");
