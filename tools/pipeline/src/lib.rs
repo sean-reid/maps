@@ -1,6 +1,7 @@
 pub mod build;
 pub mod catalogue;
 pub mod derive;
+pub mod fao;
 pub mod fetch;
 pub mod format;
 pub mod index;

@@ -1,0 +1,10 @@
+Area Code,Area Code (M49),Area,Item Code,Item,Element Code,Element,Year Code,Year,Unit,Value,Flag,Note
+"2","'004","Afghanistan","1638","Sawdust (export/import)","5622","Import value","2000","2000","1000 USD","1981.000000","E",
+"3","'008","Albania","1638","Sawdust (export/import)","5622","Import value","2000","2000","1000 USD","1787.000000","E",
+"4","'012","Algeria","1638","Sawdust (export/import)","5622","Import value","2000","2000","1000 USD","5.000000","E",
+"2","'004","Afghanistan","1651","Industrial roundwood, coniferous (export/import)","5616","Import quantity","2000","2000","m3","5.000000","A",
+"3","'008","Albania","1651","Industrial roundwood, coniferous (export/import)","5616","Import quantity","2000","2000","m3","6.000000","A",
+"4","'012","Algeria","1651","Industrial roundwood, coniferous (export/import)","5616","Import quantity","2000","2000","m3","7.000000","A",
+"2","'004","Afghanistan","1866","Industrial roundwood, coniferous","5616","Import quantity","2000","2000","m3","8.000000","A",
+"3","'008","Albania","1866","Industrial roundwood, coniferous","5616","Import quantity","2000","2000","m3","9.000000","A",
+"4","'012","Algeria","1866","Industrial roundwood, coniferous","5616","Import quantity","2000","2000","m3","10.000000","A",

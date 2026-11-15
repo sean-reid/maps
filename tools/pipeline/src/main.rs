@@ -1,13 +1,14 @@
 use pipeline::build::{self, Inputs};
-use pipeline::{fetch, index, wdi, Result};
+use pipeline::{fao, fetch, index, wdi, Result};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::process::ExitCode;
 use std::time::Instant;
 
 const USAGE: &str = "usage:
-  pipeline build --wdi <dir> --out <dir> [--min-countries <n>]
-  pipeline fetch-wdi --to <dir>";
+  pipeline build --wdi <dir> [--fao <dir>] --out <dir> [--min-countries <n>]
+  pipeline fetch-wdi --to <dir>
+  pipeline fetch-fao --to <dir>";
 
 /// Parses `--flag value` pairs; an unknown flag, a missing value, or a value that looks like a flag is an error.
 fn parse_flags(args: &[String], known: &[&str]) -> Result<HashMap<String, String>> {
@@ -36,15 +37,19 @@ fn run(args: &[String]) -> Result<()> {
     let rest = args.get(1..).unwrap_or(&[]);
     match args.first().map(String::as_str) {
         Some("build") => {
-            let flags = parse_flags(rest, &["--wdi", "--out", "--min-countries"])?;
+            let flags = parse_flags(rest, &["--wdi", "--fao", "--out", "--min-countries"])?;
             let wdi_dir = required(&flags, "--wdi")?;
+            let fao_dir = flags.get("--fao").map(PathBuf::from);
             let out = required(&flags, "--out")?;
             let min_countries = match flags.get("--min-countries") {
                 Some(v) => v.parse()?,
                 None => wdi::DEFAULT_MIN_COUNTRIES,
             };
             let start = Instant::now();
-            let inputs = Inputs { wdi: &wdi_dir };
+            let inputs = Inputs {
+                wdi: &wdi_dir,
+                fao: fao_dir.as_deref(),
+            };
             let (indicators, reports) = build::run(&inputs, min_countries)?;
             let bytes = index::write(&out, &indicators)?;
             for report in reports {
@@ -60,6 +65,10 @@ fn run(args: &[String]) -> Result<()> {
         Some("fetch-wdi") => {
             let flags = parse_flags(rest, &["--to"])?;
             fetch::fetch(&required(&flags, "--to")?)
+        }
+        Some("fetch-fao") => {
+            let flags = parse_flags(rest, &["--to"])?;
+            fao::fetch::fetch(&required(&flags, "--to")?)
         }
         _ => Err(USAGE.into()),
     }
