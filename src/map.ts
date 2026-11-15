@@ -1,7 +1,7 @@
 import { Camera } from "./camera.ts";
 import { draw, type Ink } from "./draw.ts";
 import type { Geometry } from "./geometry.ts";
-import { atomAt, bounds, measure, type Shape } from "./shapes.ts";
+import { atomAt, bounds, type Box, measure, type Shape } from "./shapes.ts";
 import { type Feel, FOLLOW, groupVertices, leadByChange, Springs } from "./spring.ts";
 
 const TAP_SLOP_PX = 6;
@@ -42,8 +42,26 @@ export function createMap(
   let moving = false;
   const arrived: (() => void)[] = [];
   let missing: Uint8Array | undefined;
-  const home = bounds(shapes);
   const camera = new Camera();
+  // The box the camera frames. It follows the solved map, which can reach well past the plain one.
+  let view = bounds(shapes);
+  let goalView = view;
+  let fitted: Box | undefined;
+  let size = { width: 0, height: 0 };
+
+  /** Fits the camera to `view`, unless the visitor has zoomed in: their place on the map is theirs. */
+  const refit = (): void => {
+    if (fitted === view || camera.zoom > 1 || size.width <= 0) return;
+    camera.fit(view, size.width, size.height);
+    fitted = view;
+  };
+
+  const frame = (box: Box, instant: boolean): void => {
+    if (![box.x0, box.y0, box.x1, box.y1].every(Number.isFinite)) return;
+    goalView = box;
+    if (instant) view = box;
+    refit();
+  };
   let active = -1;
   let pinned = false;
   let announced = false;
@@ -64,11 +82,31 @@ export function createMap(
     queued = true;
     requestAnimationFrame((now) => {
       queued = false;
+      const dt = Math.min(0.1, Math.max(0, (now - last) / 1000));
       if (moving) {
         moving = springs.step((now - last) / 1000);
         shapes = measure(geo, points);
       }
       last = now;
+      const framing = view !== goalView;
+      if (framing) {
+        const k = 1 - Math.exp(-6 * dt);
+        const ease = (from: number, to: number): number => from + (to - from) * k;
+        view = {
+          x0: ease(view.x0, goalView.x0),
+          y0: ease(view.y0, goalView.y0),
+          x1: ease(view.x1, goalView.x1),
+          y1: ease(view.y1, goalView.y1),
+        };
+        const gap = Math.max(
+          Math.abs(view.x0 - goalView.x0),
+          Math.abs(view.y0 - goalView.y0),
+          Math.abs(view.x1 - goalView.x1),
+          Math.abs(view.y1 - goalView.y1),
+        );
+        if (!(gap >= 0.02)) view = goalView;
+      }
+      refit();
       const fade = ghost ? Math.min(1, (now - ghost.from) / FADE_MS) : 1;
       if (ghost && fade < 1) {
         const under = { alpha: 1 - fade, clear: true };
@@ -81,7 +119,7 @@ export function createMap(
         ghost = undefined;
         draw(ctx, geo, points, shapes, camera, active, missing, ink());
       }
-      if (moving || ghost) {
+      if (moving || ghost || view !== goalView) {
         paint();
       } else {
         for (const done of arrived.splice(0)) done();
@@ -95,7 +133,10 @@ export function createMap(
     if (width <= 0 || height <= 0) return;
     canvas.width = Math.round(width * dpr);
     canvas.height = Math.round(height * dpr);
-    camera.fit(home, width, height);
+    size = { width, height };
+    fitted = undefined;
+    camera.fit(view, width, height);
+    fitted = view;
     paint();
   };
 
@@ -238,6 +279,7 @@ export function createMap(
       moving = false;
       ghost = undefined;
       shapes = measure(geo, points);
+      frame(bounds(shapes), true);
       onShow(active, announced);
       paint();
     },
@@ -248,8 +290,10 @@ export function createMap(
         springs.aim(next, feel);
         springs.snap();
         shapes = measure(geo, points);
+        frame(bounds(shapes), true);
       } else {
         const target = measure(geo, next);
+        frame(bounds(target), false);
         const ratio = Float64Array.from(target, (t, i) => t.area / (shapes[i]?.area || 1));
         springs.aim(next, feel, feel.stagger ? leadByChange(ratio, owner, group) : undefined);
         moving = true;
