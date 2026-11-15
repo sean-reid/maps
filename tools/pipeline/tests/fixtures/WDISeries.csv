@@ -1,0 +1,10 @@
+﻿Series Code,Topic,Indicator Name,Long definition,Aggregation method,License Type
+A.KEEP.TOTL,Misc,"Widgets, total (million units)","Count of widgets,
+over two lines",Sum,CC BY-4.0
+B.AVG,Misc,Average widget size (cm),x,Weighted average,CC BY-4.0
+C.LIC,Misc,Licensed widgets,x,Sum,SIPRI terms and conditions
+D.NEG,Misc,Widget balance,x,Sum,CC BY-4.0
+E.FEW,Misc,Scattered widgets,x,Sum,CC BY-4.0
+F.NOPAREN,Misc,Plain title,x,Sum,CC BY-4.0
+G.NEGAGG,Misc,Widgets by region (count),x,Sum,CC BY-4.0
+H.NESTED,Misc,Land (area) of things (sq. km),x,Sum,CC BY-4.0
