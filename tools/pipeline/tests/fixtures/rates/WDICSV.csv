@@ -1,0 +1,163 @@
+Country Name,Country Code,Indicator Name,Indicator Code,2019,2020,2021
+Alpha,AAA,"Population, total",SP.POP.TOTL,1000,2000,4000
+Beta,BBB,"Population, total",SP.POP.TOTL,200,400,800
+Gamma,CCC,"Population, total",SP.POP.TOTL,,100,200
+Delta,DDD,"Population, total",SP.POP.TOTL,10,20,40
+World,WLD,"Population, total",SP.POP.TOTL,9999999,9999999,9999999
+Alpha,AAA,"Population ages 15-64, total",SP.POP.1564.TO,600,1200,2400
+Beta,BBB,"Population ages 15-64, total",SP.POP.1564.TO,100,200,400
+Gamma,CCC,"Population ages 15-64, total",SP.POP.1564.TO,30,60,120
+Delta,DDD,"Population ages 15-64, total",SP.POP.1564.TO,5,10,20
+Alpha,AAA,"Population ages 65 and above, total",SP.POP.65UP.TO,100,200,400
+Beta,BBB,"Population ages 65 and above, total",SP.POP.65UP.TO,20,40,80
+Gamma,CCC,"Population ages 65 and above, total",SP.POP.65UP.TO,10,20,40
+Delta,DDD,"Population ages 65 and above, total",SP.POP.65UP.TO,1,2,4
+Alpha,AAA,GDP (current US$),NY.GDP.MKTP.CD,1000000,2000000,4000000
+Beta,BBB,GDP (current US$),NY.GDP.MKTP.CD,500000,500000,500000
+Gamma,CCC,GDP (current US$),NY.GDP.MKTP.CD,100000,200000,400000
+Delta,DDD,GDP (current US$),NY.GDP.MKTP.CD,10000,20000,40000
+Alpha,AAA,Land area (sq. km),AG.LND.TOTL.K2,500,500,500
+Beta,BBB,Land area (sq. km),AG.LND.TOTL.K2,250,250,250
+Gamma,CCC,Land area (sq. km),AG.LND.TOTL.K2,100,100,100
+Delta,DDD,Land area (sq. km),AG.LND.TOTL.K2,40,40,40
+Alpha,AAA,"Labor force, total",SL.TLF.TOTL.IN,400,800,1600
+Beta,BBB,"Labor force, total",SL.TLF.TOTL.IN,80,160,320
+Gamma,CCC,"Labor force, total",SL.TLF.TOTL.IN,20,40,80
+Delta,DDD,"Labor force, total",SL.TLF.TOTL.IN,4,8,16
+Alpha,AAA,Urban population,SP.URB.TOTL,500,1000,2000
+Beta,BBB,Urban population,SP.URB.TOTL,100,200,400
+Gamma,CCC,Urban population,SP.URB.TOTL,,50,100
+Delta,DDD,Urban population,SP.URB.TOTL,5,10,20
+Alpha,AAA,Individuals using the Internet (% of population),IT.NET.USER.ZS,10,20,30
+Beta,BBB,Individuals using the Internet (% of population),IT.NET.USER.ZS,50,50,50
+Gamma,CCC,Individuals using the Internet (% of population),IT.NET.USER.ZS,100,0,25
+Delta,DDD,Individuals using the Internet (% of population),IT.NET.USER.ZS,20,20,20
+World,WLD,Individuals using the Internet (% of population),IT.NET.USER.ZS,9999999,9999999,9999999
+Alpha,AAA,"Hospital beds (per 1,000 people)",SH.MED.BEDS.ZS,2,2,2
+Beta,BBB,"Hospital beds (per 1,000 people)",SH.MED.BEDS.ZS,5,5,5
+Gamma,CCC,"Hospital beds (per 1,000 people)",SH.MED.BEDS.ZS,10,10,10
+Delta,DDD,"Hospital beds (per 1,000 people)",SH.MED.BEDS.ZS,100,100,100
+Alpha,AAA,Mobile subscriptions (per 100 people),IT.CEL.SETS.P2,50,50,50
+Beta,BBB,Mobile subscriptions (per 100 people),IT.CEL.SETS.P2,100,100,100
+Gamma,CCC,Mobile subscriptions (per 100 people),IT.CEL.SETS.P2,200,200,200
+Delta,DDD,Mobile subscriptions (per 100 people),IT.CEL.SETS.P2,10,10,10
+Alpha,AAA,"Road deaths (per 100,000 people)",SH.STA.TRAF.P5,100,100,100
+Beta,BBB,"Road deaths (per 100,000 people)",SH.STA.TRAF.P5,500,500,500
+Gamma,CCC,"Road deaths (per 100,000 people)",SH.STA.TRAF.P5,1000,1000,1000
+Delta,DDD,"Road deaths (per 100,000 people)",SH.STA.TRAF.P5,10000,10000,10000
+Alpha,AAA,Researchers (per million people),SP.POP.SCIE.RD.P6,1000,1000,1000
+Beta,BBB,Researchers (per million people),SP.POP.SCIE.RD.P6,5000,5000,5000
+Gamma,CCC,Researchers (per million people),SP.POP.SCIE.RD.P6,10000,10000,10000
+Delta,DDD,Researchers (per million people),SP.POP.SCIE.RD.P6,100000,100000,100000
+Alpha,AAA,Research spending (% of GDP),GB.XPD.RSDV.GD.ZS,1,1,1
+Beta,BBB,Research spending (% of GDP),GB.XPD.RSDV.GD.ZS,2,2,2
+Gamma,CCC,Research spending (% of GDP),GB.XPD.RSDV.GD.ZS,5,5,5
+Delta,DDD,Research spending (% of GDP),GB.XPD.RSDV.GD.ZS,10,10,10
+Alpha,AAA,Protected land (% of land area),AG.LND.PRCT.ZS,10,10,10
+Beta,BBB,Protected land (% of land area),AG.LND.PRCT.ZS,20,20,20
+Gamma,CCC,Protected land (% of land area),AG.LND.PRCT.ZS,50,50,50
+Delta,DDD,Protected land (% of land area),AG.LND.PRCT.ZS,25,25,25
+Alpha,AAA,"Unemployment, total (% of total labor force) (modeled ILO estimate)",SL.UEM.TOTL.ZS,10,10,10
+Beta,BBB,"Unemployment, total (% of total labor force) (modeled ILO estimate)",SL.UEM.TOTL.ZS,50,50,50
+Gamma,CCC,"Unemployment, total (% of total labor force) (modeled ILO estimate)",SL.UEM.TOTL.ZS,25,25,25
+Delta,DDD,"Unemployment, total (% of total labor force) (modeled ILO estimate)",SL.UEM.TOTL.ZS,25,25,25
+Alpha,AAA,Health spending per capita (current US$),SH.XPD.CHEX.PC.CD,1,1,1
+Beta,BBB,Health spending per capita (current US$),SH.XPD.CHEX.PC.CD,10,10,10
+Gamma,CCC,Health spending per capita (current US$),SH.XPD.CHEX.PC.CD,100,100,100
+Delta,DDD,Health spending per capita (current US$),SH.XPD.CHEX.PC.CD,1000,1000,1000
+Alpha,AAA,Electric power use (kWh per capita),EG.USE.ELEC.KH.PC,1,2,3
+Beta,BBB,Electric power use (kWh per capita),EG.USE.ELEC.KH.PC,5,5,5
+Gamma,CCC,Electric power use (kWh per capita),EG.USE.ELEC.KH.PC,10,10,10
+Delta,DDD,Electric power use (kWh per capita),EG.USE.ELEC.KH.PC,100,100,100
+Alpha,AAA,Account holders (% of population ages 15+),FX.OWN.TOTL.ZS,50,50,50
+Beta,BBB,Account holders (% of population ages 15+),FX.OWN.TOTL.ZS,50,50,50
+Gamma,CCC,Account holders (% of population ages 15+),FX.OWN.TOTL.ZS,50,50,50
+Delta,DDD,Account holders (% of population ages 15+),FX.OWN.TOTL.ZS,50,50,50
+Alpha,AAA,GDP per capita (current US$),NY.GDP.PCAP.CD,1,1,1
+Beta,BBB,GDP per capita (current US$),NY.GDP.PCAP.CD,2,2,2
+Gamma,CCC,GDP per capita (current US$),NY.GDP.PCAP.CD,3,3,3
+Delta,DDD,GDP per capita (current US$),NY.GDP.PCAP.CD,4,4,4
+Alpha,AAA,Urban population (% of total population),SP.URB.TOTL.IN.ZS,50,50,50
+Beta,BBB,Urban population (% of total population),SP.URB.TOTL.IN.ZS,50,50,50
+Gamma,CCC,Urban population (% of total population),SP.URB.TOTL.IN.ZS,50,50,50
+Delta,DDD,Urban population (% of total population),SP.URB.TOTL.IN.ZS,50,50,50
+Alpha,AAA,"Hospital stays (per 1,000 people)",HS.A,2,2,2
+Beta,BBB,"Hospital stays (per 1,000 people)",HS.A,2,2,2
+Gamma,CCC,"Hospital stays (per 1,000 people)",HS.A,2,2,2
+Delta,DDD,"Hospital stays (per 1,000 people)",HS.A,2,2,2
+Alpha,AAA,Hospital stays (per 100 people),HS.B,1,1,1
+Beta,BBB,Hospital stays (per 100 people),HS.B,1,1,1
+Gamma,CCC,Hospital stays (per 100 people),HS.B,1,1,1
+Delta,DDD,Hospital stays (per 100 people),HS.B,1,1,1
+Alpha,AAA,Digital index (2015 = 100),DIG.IDX,100,100,100
+Beta,BBB,Digital index (2015 = 100),DIG.IDX,110,110,110
+Gamma,CCC,Digital index (2015 = 100),DIG.IDX,120,120,120
+Delta,DDD,Digital index (2015 = 100),DIG.IDX,130,130,130
+Alpha,AAA,Output growth (annual %),NY.GDP.GROW,2,2,2
+Beta,BBB,Output growth (annual %),NY.GDP.GROW,3,3,3
+Gamma,CCC,Output growth (annual %),NY.GDP.GROW,4,4,4
+Delta,DDD,Output growth (annual %),NY.GDP.GROW,5,5,5
+Alpha,AAA,Spending per capita (current LCU),SH.XPD.PC.CN,5,5,5
+Beta,BBB,Spending per capita (current LCU),SH.XPD.PC.CN,5,5,5
+Gamma,CCC,Spending per capita (current LCU),SH.XPD.PC.CN,5,5,5
+Delta,DDD,Spending per capita (current LCU),SH.XPD.PC.CN,5,5,5
+Alpha,AAA,"Deaths, standardized (per 100,000 people)",SH.AGE.STD.P5,5,5,5
+Beta,BBB,"Deaths, standardized (per 100,000 people)",SH.AGE.STD.P5,5,5,5
+Gamma,CCC,"Deaths, standardized (per 100,000 people)",SH.AGE.STD.P5,5,5,5
+Delta,DDD,"Deaths, standardized (per 100,000 people)",SH.AGE.STD.P5,5,5,5
+Alpha,AAA,"Coverage, poorest quintile (% of population)",PER.COV.Q1,5,5,5
+Beta,BBB,"Coverage, poorest quintile (% of population)",PER.COV.Q1,5,5,5
+Gamma,CCC,"Coverage, poorest quintile (% of population)",PER.COV.Q1,5,5,5
+Delta,DDD,"Coverage, poorest quintile (% of population)",PER.COV.Q1,5,5,5
+Alpha,AAA,Licensed users (% of population),LIC.USER.ZS,5,5,5
+Beta,BBB,Licensed users (% of population),LIC.USER.ZS,5,5,5
+Gamma,CCC,Licensed users (% of population),LIC.USER.ZS,5,5,5
+Delta,DDD,Licensed users (% of population),LIC.USER.ZS,5,5,5
+Alpha,AAA,Net lending (% of GDP),GC.LEND.GD.ZS,1,1,1
+Beta,BBB,Net lending (% of GDP),GC.LEND.GD.ZS,-1,1,1
+Gamma,CCC,Net lending (% of GDP),GC.LEND.GD.ZS,1,1,1
+Delta,DDD,Net lending (% of GDP),GC.LEND.GD.ZS,1,1,1
+Alpha,AAA,Remote sites (% of GDP),REM.SITES.GD.ZS,1,1,1
+Beta,BBB,Remote sites (% of GDP),REM.SITES.GD.ZS,1,1,1
+Gamma,CCC,Remote sites (% of GDP),REM.SITES.GD.ZS,,,
+Delta,DDD,Remote sites (% of GDP),REM.SITES.GD.ZS,,,
+Alpha,AAA,"Service exports (current US$, BoP)",BX.GSR.NFSV.CD,1000,2000,4000
+Beta,BBB,"Service exports (current US$, BoP)",BX.GSR.NFSV.CD,500,500,500
+Gamma,CCC,"Service exports (current US$, BoP)",BX.GSR.NFSV.CD,100,200,400
+Delta,DDD,"Service exports (current US$, BoP)",BX.GSR.NFSV.CD,10,20,40
+Alpha,AAA,"Service imports (current US$, BoP)",BM.GSR.NFSV.CD,2000,4000,8000
+Beta,BBB,"Service imports (current US$, BoP)",BM.GSR.NFSV.CD,1000,1000,1000
+Gamma,CCC,"Service imports (current US$, BoP)",BM.GSR.NFSV.CD,200,400,800
+Delta,DDD,"Service imports (current US$, BoP)",BM.GSR.NFSV.CD,20,40,80
+Alpha,AAA,Merchandise exports (current US$),TX.VAL.MRCH.CD.WT,1,1,1
+Beta,BBB,Merchandise exports (current US$),TX.VAL.MRCH.CD.WT,1,1,1
+Gamma,CCC,Merchandise exports (current US$),TX.VAL.MRCH.CD.WT,1,1,1
+Delta,DDD,Merchandise exports (current US$),TX.VAL.MRCH.CD.WT,1,1,1
+Alpha,AAA,"Transport services (% of service exports, BoP)",BX.TRAN.ZS,10,10,10
+Beta,BBB,"Transport services (% of service exports, BoP)",BX.TRAN.ZS,10,10,10
+Gamma,CCC,"Transport services (% of service exports, BoP)",BX.TRAN.ZS,10,10,10
+Delta,DDD,"Transport services (% of service exports, BoP)",BX.TRAN.ZS,10,10,10
+Alpha,AAA,"Transport services (% of service imports, BoP)",BM.TRAN.ZS,5,5,5
+Beta,BBB,"Transport services (% of service imports, BoP)",BM.TRAN.ZS,5,5,5
+Gamma,CCC,"Transport services (% of service imports, BoP)",BM.TRAN.ZS,5,5,5
+Delta,DDD,"Transport services (% of service imports, BoP)",BM.TRAN.ZS,5,5,5
+Alpha,AAA,Machinery (% of merchandise exports),MRCH.RATE.ZS,5,5,5
+Beta,BBB,Machinery (% of merchandise exports),MRCH.RATE.ZS,5,5,5
+Gamma,CCC,Machinery (% of merchandise exports),MRCH.RATE.ZS,5,5,5
+Delta,DDD,Machinery (% of merchandise exports),MRCH.RATE.ZS,5,5,5
+Alpha,AAA,Trade (% of GDP),NE.TRD.GNFS.ZS,10,10,10
+Beta,BBB,Trade (% of GDP),NE.TRD.GNFS.ZS,10,10,10
+Gamma,CCC,Trade (% of GDP),NE.TRD.GNFS.ZS,10,10,10
+Delta,DDD,Trade (% of GDP),NE.TRD.GNFS.ZS,10,10,10
+Alpha,AAA,Credit growth (% of GDP),CREDIT.GROW.ZS,5,5,5
+Beta,BBB,Credit growth (% of GDP),CREDIT.GROW.ZS,5,5,5
+Gamma,CCC,Credit growth (% of GDP),CREDIT.GROW.ZS,5,5,5
+Delta,DDD,Credit growth (% of GDP),CREDIT.GROW.ZS,5,5,5
+Alpha,AAA,"Deaths, age-adjusted (per 1,000 people)",DEATHS.ADJ.P3,5,5,5
+Beta,BBB,"Deaths, age-adjusted (per 1,000 people)",DEATHS.ADJ.P3,5,5,5
+Gamma,CCC,"Deaths, age-adjusted (per 1,000 people)",DEATHS.ADJ.P3,5,5,5
+Delta,DDD,"Deaths, age-adjusted (per 1,000 people)",DEATHS.ADJ.P3,5,5,5
+Alpha,AAA,"Beds, children (per 1,000 people)",BEDS.CH.P3,5,5,5
+Beta,BBB,"Beds, children (per 1,000 people)",BEDS.CH.P3,5,5,5
+Gamma,CCC,"Beds, children (per 1,000 people)",BEDS.CH.P3,5,5,5
+Delta,DDD,"Beds, children (per 1,000 people)",BEDS.CH.P3,5,5,5

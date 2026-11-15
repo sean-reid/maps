@@ -1,5 +1,8 @@
+use crate::catalogue::{check_slugs, is_native, norm_unit, resolve_twins, Derived};
+use crate::derive::{self, Rows};
 use crate::format::{is_code, Series};
 use crate::index::Indicator;
+use crate::rates::{self, Plan};
 use crate::Result;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt;
@@ -24,25 +27,35 @@ fn is_cc_by(licence: &str) -> bool {
 pub struct Stats {
     pub total: usize,
     pub no_metadata: usize,
-    pub not_sum: usize,
+    pub no_rule: usize,
     pub not_cc_by: usize,
     pub negative: usize,
     pub too_few_countries: usize,
+    pub duplicate: usize,
     pub kept: usize,
+    pub derived: usize,
+    pub retitled: usize,
+    pub merged: usize,
+    pub by_rule: BTreeMap<&'static str, usize>,
 }
 
 impl fmt::Display for Stats {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "indicators {}, kept {}, dropped: no metadata {}, aggregation not a total {}, licence not CC BY 4.0 {}, negative {}, too few countries {}",
-            self.total, self.kept, self.no_metadata, self.not_sum, self.not_cc_by, self.negative, self.too_few_countries
-        )
+            "indicators {}, kept {} native and {} derived, dropped: no metadata {}, not a total and no rule {}, licence not CC BY 4.0 {}, negative {}, too few countries {}, derived title already a native total {}; derived series retitled to tell twins apart {}, twins merged {}",
+            self.total, self.kept, self.derived, self.no_metadata, self.no_rule, self.not_cc_by, self.negative, self.too_few_countries, self.duplicate, self.retitled, self.merged
+        )?;
+        for (rule, n) in &self.by_rule {
+            write!(f, "\n  {rule} {n}")?;
+        }
+        Ok(())
     }
 }
 
 struct Meta {
     name: String,
+    definition: String,
     aggregation: String,
     licence: String,
 }
@@ -72,6 +85,13 @@ fn parse_cell(cell: &str) -> f32 {
     }
 }
 
+fn parse_wide(cell: &str) -> f64 {
+    match cell.parse::<f64>() {
+        Ok(v) if v.is_finite() => v,
+        _ => f64::NAN,
+    }
+}
+
 fn field(record: &csv::StringRecord, at: usize) -> &str {
     record.get(at).unwrap_or("").trim()
 }
@@ -98,6 +118,7 @@ fn load_meta(path: &Path) -> Result<HashMap<String, Meta>> {
     let headers = rdr.headers()?.clone();
     let code = column(&headers, "Series Code")?;
     let name = column(&headers, "Indicator Name")?;
+    let definition = column(&headers, "Long definition")?;
     let agg = column(&headers, "Aggregation method")?;
     let lic = column(&headers, "License Type")?;
     let mut map = HashMap::new();
@@ -107,6 +128,7 @@ fn load_meta(path: &Path) -> Result<HashMap<String, Meta>> {
             field(&rec, code).to_string(),
             Meta {
                 name: field(&rec, name).to_string(),
+                definition: field(&rec, definition).to_string(),
                 aggregation: field(&rec, agg).to_string(),
                 licence: field(&rec, lic).to_string(),
             },
@@ -164,9 +186,49 @@ fn enough_countries(rows: &BTreeMap<String, Vec<f32>>, width: usize, min: usize)
     (0..width).any(|y| rows.values().filter(|v| v[y].is_finite()).count() >= min)
 }
 
+enum Reject {
+    Negative,
+    TooFew,
+}
+
+fn finish(
+    rows: BTreeMap<String, Vec<f32>>,
+    width: usize,
+    first_year: u16,
+    min: usize,
+) -> std::result::Result<Series, Reject> {
+    // Rows only hold years from FIRST_YEAR on, so earlier negatives never count.
+    if rows.values().flatten().any(|&v| v < 0.0) {
+        return Err(Reject::Negative);
+    }
+    if !enough_countries(&rows, width, min) {
+        return Err(Reject::TooFew);
+    }
+    build_series(rows, first_year).ok_or(Reject::TooFew)
+}
+
+fn tally(stats: &mut Stats, reject: Reject) {
+    match reject {
+        Reject::Negative => stats.negative += 1,
+        Reject::TooFew => stats.too_few_countries += 1,
+    }
+}
+
 pub fn run(input: &Path, min_countries: usize) -> Result<(Vec<Indicator>, Stats)> {
     let countries = load_countries(&input.join("WDICountry.csv"))?;
     let meta = load_meta(&input.join("WDISeries.csv"))?;
+    let licensed = |code: &str| meta.get(code).is_some_and(|m| is_cc_by(&m.licence));
+    let plans: HashMap<String, Plan> = meta
+        .iter()
+        .filter(|(_, m)| !is_total(&m.aggregation) && is_cc_by(&m.licence))
+        .filter_map(|(code, m)| Some((code.clone(), rates::plan(&m.name, &m.definition)?)))
+        .filter(|(_, p)| p.rule.denom.iter().all(|d| licensed(d)))
+        .collect();
+    let needed: HashSet<&str> = plans
+        .values()
+        .flat_map(|p| p.rule.denom.iter().copied())
+        .chain(plans.keys().map(String::as_str))
+        .collect();
 
     let mut rdr = reader(&input.join("WDICSV.csv"))?;
     let headers = rdr.headers()?.clone();
@@ -187,6 +249,7 @@ pub fn run(input: &Path, min_countries: usize) -> Result<(Vec<Indicator>, Stats)
     let mut stats = Stats::default();
     let mut seen: HashSet<String> = HashSet::new();
     let mut eligible: HashMap<String, Accumulator> = HashMap::new();
+    let mut wide: HashMap<String, Rows> = HashMap::new();
     for rec in rdr.records() {
         let rec = rec?;
         let code = field(&rec, code_col);
@@ -194,49 +257,101 @@ pub fn run(input: &Path, min_countries: usize) -> Result<(Vec<Indicator>, Stats)
             stats.total += 1;
             match meta.get(code) {
                 None => stats.no_metadata += 1,
-                Some(m) if !is_total(&m.aggregation) => stats.not_sum += 1,
-                Some(m) if !is_cc_by(&m.licence) => stats.not_cc_by += 1,
-                Some(_) => {
+                Some(m) if is_total(&m.aggregation) && !is_cc_by(&m.licence) => {
+                    stats.not_cc_by += 1
+                }
+                Some(m) if is_total(&m.aggregation) => {
                     eligible.insert(code.to_string(), Accumulator::default());
                 }
+                Some(_) if plans.contains_key(code) => {}
+                Some(m) if rates::plan(&m.name, &m.definition).is_some() => stats.not_cc_by += 1,
+                Some(_) => stats.no_rule += 1,
             }
         }
-        let Some(acc) = eligible.get_mut(code) else {
-            continue;
-        };
         let country = field(&rec, country_col);
         if !is_code(country) || !countries.contains(country) {
             continue;
         }
-        let mut row = Vec::with_capacity(width);
-        for &(at, _) in &year_cols {
-            let cell = field(&rec, at);
-            row.push(parse_cell(cell));
+        let native = eligible.get_mut(code);
+        let derived = needed.contains(code);
+        if native.is_none() && !derived {
+            continue;
         }
-        acc.rows.insert(country.to_string(), row);
+        let cells: Vec<&str> = year_cols.iter().map(|&(at, _)| field(&rec, at)).collect();
+        if let Some(acc) = native {
+            acc.rows.insert(
+                country.to_string(),
+                cells.iter().map(|c| parse_cell(c)).collect(),
+            );
+        }
+        if derived {
+            let row = cells.iter().map(|c| parse_wide(c)).collect();
+            wide.entry(code.to_string())
+                .or_default()
+                .insert(country.to_string(), row);
+        }
     }
 
     let mut indicators = Vec::new();
     for (code, acc) in eligible {
-        // Rows only hold years from FIRST_YEAR on, so earlier negatives never count.
-        if acc.rows.values().flatten().any(|&v| v < 0.0) {
-            stats.negative += 1;
-        } else if !enough_countries(&acc.rows, width, min_countries) {
-            stats.too_few_countries += 1;
-        } else if let Some(series) = build_series(acc.rows, first_col_year) {
-            let (title, unit) = split_name(&meta[&code].name);
-            indicators.push(Indicator {
-                code,
-                title,
-                unit,
-                series,
-            });
-            stats.kept += 1;
-        } else {
-            stats.too_few_countries += 1;
+        match finish(acc.rows, width, first_col_year, min_countries) {
+            Ok(series) => {
+                let (title, unit) = split_name(&meta[&code].name);
+                indicators.push(Indicator {
+                    code,
+                    title,
+                    unit,
+                    series,
+                    derived: None,
+                });
+                stats.kept += 1;
+            }
+            Err(reject) => tally(&mut stats, reject),
         }
     }
-    indicators.sort_by(|a, b| a.code.cmp(&b.code));
+    let native: HashSet<(String, String)> = indicators
+        .iter()
+        .map(|i| (i.title.clone(), norm_unit(&i.unit)))
+        .collect();
+    let mut codes: Vec<&String> = plans.keys().collect();
+    codes.sort();
+    let mut derived = Vec::new();
+    for code in codes {
+        let plan = &plans[code];
+        if is_native(&native, &plan.title, &plan.unit) {
+            stats.duplicate += 1;
+            continue;
+        }
+        let rows = match wide.get(code) {
+            Some(rate) => derive::product(plan.rule, rate, &wide),
+            None => BTreeMap::new(),
+        };
+        match finish(rows, width, first_col_year, min_countries) {
+            Ok(series) => {
+                derived.push(Derived::new(
+                    Indicator {
+                        code: code.clone(),
+                        title: plan.title.clone(),
+                        unit: plan.unit.clone(),
+                        series,
+                        derived: Some(plan.rule.note.to_string()),
+                    },
+                    plan,
+                ));
+            }
+            Err(reject) => tally(&mut stats, reject),
+        }
+    }
+    let (derived, retitled, merged) = resolve_twins(derived);
+    stats.retitled = retitled;
+    stats.merged = merged;
+    stats.derived = derived.len();
+    for d in &derived {
+        *stats.by_rule.entry(d.plan.rule.name).or_default() += 1;
+    }
+    indicators.extend(derived.into_iter().map(|d| d.indicator));
+    check_slugs(&indicators)?;
+    indicators.sort_by_key(|i| i.slug());
     Ok((indicators, stats))
 }
 

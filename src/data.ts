@@ -8,6 +8,7 @@ export interface SeriesMeta {
   first: number;
   last: number;
   entities: number;
+  derived?: string;
 }
 
 export interface Catalogue {

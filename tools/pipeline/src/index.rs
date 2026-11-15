@@ -11,6 +11,17 @@ pub struct Indicator {
     pub title: String,
     pub unit: String,
     pub series: Series,
+    /// Set when the series is a rate multiplied by a denominator.
+    pub derived: Option<String>,
+}
+
+impl Indicator {
+    pub fn slug(&self) -> String {
+        match self.derived {
+            Some(_) => format!("{}-total", slug(&self.code)),
+            None => slug(&self.code),
+        }
+    }
 }
 
 #[derive(Serialize)]
@@ -22,6 +33,8 @@ pub struct Entry {
     pub first: u16,
     pub last: u16,
     pub entities: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub derived: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -38,13 +51,14 @@ pub fn build(indicators: &[Indicator]) -> Index {
     let mut series: Vec<Entry> = indicators
         .iter()
         .map(|i| Entry {
-            slug: slug(&i.code),
+            slug: i.slug(),
             title: i.title.clone(),
             unit: i.unit.clone(),
             source: SOURCE.to_string(),
             first: i.series.first_year,
             last: i.series.last_year(),
             entities: i.series.codes.len(),
+            derived: i.derived.clone(),
         })
         .collect();
     series.sort_by(|a, b| {
@@ -62,7 +76,7 @@ pub fn write(out: &Path, indicators: &[Indicator]) -> Result<u64> {
     for i in indicators {
         let data = encode(&i.series).map_err(|e| format!("{}: {e}", i.code))?;
         bytes += data.len() as u64;
-        files.push((format!("{}.bin", slug(&i.code)), data));
+        files.push((format!("{}.bin", i.slug()), data));
     }
     if out.as_os_str().is_empty() {
         return Err("--out is empty".into());
@@ -111,6 +125,7 @@ mod tests {
             code: code.into(),
             title: "t".into(),
             unit: String::new(),
+            derived: None,
             series: Series {
                 codes: (0..n).map(|i| format!("A{:02}", i)).collect(),
                 first_year: 2000,
@@ -139,6 +154,17 @@ mod tests {
         assert_eq!(
             json,
             r#"{"version":1,"series":[{"slug":"wdi-x-y","title":"t","unit":"","source":"World Bank WDI","first":2000,"last":2001,"entities":2}]}"#
+        );
+    }
+
+    #[test]
+    fn derived_series_get_a_total_slug_and_a_note() {
+        let mut i = ind("X.Y", 2);
+        i.derived = Some("share of population times population".into());
+        let json = serde_json::to_string(&build(&[i])).unwrap();
+        assert_eq!(
+            json,
+            r#"{"version":1,"series":[{"slug":"wdi-x-y-total","title":"t","unit":"","source":"World Bank WDI","first":2000,"last":2001,"entities":2,"derived":"share of population times population"}]}"#
         );
     }
 
