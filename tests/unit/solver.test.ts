@@ -129,6 +129,20 @@ test("years with too few countries are left off the ends of a series", () => {
     years: 8,
     values: Float32Array.from(rowsOf.flat()),
   };
-  // Counts by year, gaps interpolated: 1, 1, 1, 4, 8, 10, 9, 5.
+  // Counts by year, gaps interpolated: 1, 1, 1, 4, 8, 10, 9, 6.
   expect(coveredYears(series)).toEqual({ first: 2004, last: 2007, opening: 2006 });
+});
+
+test("a thin year between two full ones stays in the range", () => {
+  const nan = NaN;
+  // Four countries report in 2000, 2001, 2003 and 2004; in 2002 only one does, and
+  // the others are interpolated across it, so it still counts as covered.
+  const row = [1, 1, nan, 1, 1];
+  const series = {
+    codes: ["AAA", "BBB", "CCC", "DDD"],
+    firstYear: 2000,
+    years: 5,
+    values: Float32Array.from([[1, 1, 1, 1, 1], row, row, row].flat()),
+  };
+  expect(coveredYears(series)).toEqual({ first: 2000, last: 2004, opening: 2004 });
 });

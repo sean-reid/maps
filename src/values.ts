@@ -32,7 +32,10 @@ export function valuesAt(series: Series, rows: Int32Array, year: number): Float6
 }
 
 export interface Span {
-  /** First and last year worth showing: at least half as many countries as the best year. */
+  /**
+   * First and last year worth showing: at least half as many countries as the best year.
+   * Only the ends are trimmed; a thin year between two full ones stays.
+   */
   first: number;
   last: number;
   /** The last year with at least 80% of the best year's countries, where the map opens. */
