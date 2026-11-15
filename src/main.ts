@@ -88,7 +88,12 @@ async function start(): Promise<void> {
   const showLand = (): void => {
     title.textContent = "Land area";
     detail.textContent = "share of land outside Antarctica, Natural Earth";
+    timeBar.hidden = true;
     canvas.removeAttribute("data-waiting");
+  };
+  /** A failure before the first map is on screen leaves the plain one to look at. */
+  const landIfWaiting = (): void => {
+    if (canvas.hasAttribute("data-waiting")) showLand();
   };
 
   const catalogue = await loadCatalogue().catch(() => undefined);
@@ -98,6 +103,7 @@ async function start(): Promise<void> {
   const solver = new SolverClient(geo, (message) => {
     console.error(message);
     halt();
+    landIfWaiting();
     readout.textContent = "The map stopped responding. Reload the page to carry on.";
   });
   const fallback = catalogue.series.find((s: SeriesMeta) => s.slug === OPENING);
@@ -195,6 +201,7 @@ async function start(): Promise<void> {
   };
 
   const report = (error: unknown): void => {
+    landIfWaiting();
     readout.textContent = error instanceof Error ? error.message : "That series did not load.";
   };
 
@@ -243,10 +250,7 @@ async function start(): Promise<void> {
     openPath(location.pathname).catch(report);
   });
 
-  await openPath(location.pathname).catch((error: unknown) => {
-    showLand();
-    report(error);
-  });
+  await openPath(location.pathname).catch(report);
 }
 
 let pathTimer: ReturnType<typeof setTimeout> | undefined;

@@ -245,8 +245,30 @@ test("nothing is drawn until the first series is in shape", async ({ page }) => 
   release();
   await expect(page.locator("#map")).toBeVisible();
   // The map is at rest the moment it appears: it did not spring in from the plain map.
-  await expect(page.locator("html")).toHaveAttribute("data-rest", "true", { timeout: 100 });
+  const restAtReveal = await page.evaluate(
+    () =>
+      !document.querySelector("#map")?.hasAttribute("data-waiting") &&
+      document.documentElement.dataset.rest === "true",
+  );
+  expect(restAtReveal).toBe(true);
   await expect(page.getByRole("heading", { name: "Population, total" })).toBeVisible();
+});
+
+test("if the solver cannot load, the plain map shows with a message", async ({ page }) => {
+  await page.route("**/*.wasm", (route) => route.fulfill({ status: 404, body: "" }));
+  await page.goto("/");
+  await expect(page.locator("#map")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Land area" })).toBeVisible();
+  await expect(page.locator("#readout")).toHaveText(/stopped responding/);
+  await expect(page.locator("#time")).toBeHidden();
+});
+
+test("if the first series cannot load, the plain map shows with a message", async ({ page }) => {
+  await page.route("**/series/*.bin", (route) => route.fulfill({ status: 500, body: "" }));
+  await page.goto("/");
+  await expect(page.locator("#map")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Land area" })).toBeVisible();
+  await expect(page.locator("#readout")).toHaveText("wdi-sp-pop-totl did not load (500)");
 });
 
 test("without data the page falls back to land area", async ({ page }) => {
