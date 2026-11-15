@@ -89,8 +89,24 @@ export function draw(
   });
 }
 
+const patterns = new Map<string, CanvasPattern | string>();
+
 /** Diagonal hairlines for countries the series has no value for. */
 function hatch(ctx: CanvasRenderingContext2D, colour: string, dpr: number): CanvasPattern | string {
+  const key = `${colour}@${dpr}`;
+  let pattern = patterns.get(key);
+  if (!pattern) {
+    pattern = hatchPattern(ctx, colour, dpr);
+    patterns.set(key, pattern);
+  }
+  return pattern;
+}
+
+function hatchPattern(
+  ctx: CanvasRenderingContext2D,
+  colour: string,
+  dpr: number,
+): CanvasPattern | string {
   const size = Math.round(5 * dpr);
   const tile = new OffscreenCanvas(size, size);
   const t = tile.getContext("2d");

@@ -59,6 +59,42 @@ test("a warm start for the next year lands close to a cold solve", () => {
   expect(worst).toBeLessThan(3);
 });
 
-test("bad input is an error with the solver's own message", () => {
+test("an error raised inside the WASM carries its message, and the solver still works after it", () => {
+  const values = valuesAt(population, rows, 2020);
+  const start = new Float64Array(geo.points.length).fill(NaN);
+  expect(() => solver.solve(values, start)).toThrow(/start must be finite/);
   expect(() => solver.solve(new Float64Array(3))).toThrow(/3 values/);
+  expect(solver.solve(values).meanError).toBeLessThan(0.02);
+});
+
+test("a geometry the solver refuses is an error at creation", async () => {
+  const wasm = readFileSync(resolve(root, "src/solver/cartogram.wasm"));
+  await expect(createSolver(wasm, { ...geo, width: 1 })).rejects.toThrow(/smaller than 2x2/);
+});
+
+test("gaps are interpolated, edges are not extended, and empty input is safe", () => {
+  const nan = NaN;
+  const series = {
+    codes: ["AAA", "BBB", "XKX"],
+    firstYear: 2000,
+    years: 5,
+    values: Float32Array.of(10, nan, nan, 40, nan, nan, 5, 6, 7, 8, 1, 1, 1, 1, 1),
+  };
+  const atoms = [
+    { iso: "AAA", name: "A" },
+    { iso: "BBB", name: "B" },
+    { iso: "KOS", name: "Kosovo" },
+    { iso: "ZZZ", name: "Z" },
+  ];
+  const r = rowsFor(series, atoms);
+  expect([...r]).toEqual([0, 1, 2, -1]);
+  expect([...valuesAt(series, r, 2001)]).toEqual([20, 5, 1, nan]);
+  expect([...valuesAt(series, r, 2002)]).toEqual([30, 6, 1, nan]);
+  expect([...valuesAt(series, r, 2004)]).toEqual([nan, 8, 1, nan]);
+  expect([...valuesAt(series, r, 2000)]).toEqual([10, nan, 1, nan]);
+  expect(valuesAt(series, r, 2005).every(Number.isNaN)).toBe(true);
+  expect(latestFullYear(series)).toBe(2003);
+  const empty = { codes: [], firstYear: 1990, years: 0, values: new Float32Array(0) };
+  expect(latestFullYear(empty)).toBe(1990);
+  expect(valuesAt(empty, rowsFor(empty, atoms), 1990).every(Number.isNaN)).toBe(true);
 });

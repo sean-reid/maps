@@ -197,7 +197,7 @@ export function createMap(
     setPoints(next) {
       points = next;
       shapes = measure(geo, points);
-      onShow(active, false);
+      onShow(active, announced);
       paint();
     },
     setMissing(next) {

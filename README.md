@@ -6,7 +6,7 @@ A world map at [maps.dwainosaur.com](https://maps.dwainosaur.com) where each cou
 
 ```sh
 npm install
-npm run build      # bundle the client into dist/
+npm run build      # build the solver with cargo (needs the wasm32 target), then bundle into dist/
 npm run dev        # wrangler dev on http://localhost:8787
 npm test           # unit tests
 npm run test:e2e   # Playwright against wrangler dev

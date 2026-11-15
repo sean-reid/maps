@@ -31,6 +31,8 @@ export class SolverClient {
         return res.arrayBuffer();
       })
       .then((wasm) => this.send({ kind: "init", wasm, geo }, [wasm]));
+    // A failed load is reported by the first solve; this keeps it from surfacing unhandled before then.
+    this.ready.catch(() => undefined);
   }
 
   /** Resolves with the solved points, or undefined when a newer request overtook this one. */
