@@ -78,8 +78,9 @@ test("the camera fits the map, round-trips points, and keeps the map on screen",
 });
 
 test("a label shows only where the name fits", () => {
-  expect(labelSize("India", 200, 200)).toBeGreaterThanOrEqual(LABEL_MIN_PX);
-  expect(labelSize("India", 20, 20)).toBe(0);
-  expect(labelSize("United States of America", 90, 400)).toBe(0);
-  expect(labelSize("Chile", 300, 12)).toBe(0);
+  expect(labelSize("India", 200, 200, 30000)).toBeGreaterThanOrEqual(LABEL_MIN_PX);
+  expect(labelSize("India", 20, 20, 300)).toBe(0);
+  expect(labelSize("United States of America", 90, 400, 30000)).toBe(0);
+  expect(labelSize("Chile", 300, 12, 3000)).toBe(0);
+  expect(labelSize("Russia", 600, 80, 1500)).toBe(0);
 });
