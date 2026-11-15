@@ -46,14 +46,14 @@ export class SolverClient {
    * Resolves with the solved points, or undefined when a newer request overtook this one.
    * One solve runs at a time; of those asked for meanwhile, only the newest is sent.
    */
-  solve(values: Float64Array, warm: boolean): Promise<Float64Array | undefined> {
+  solve(values: Float64Array): Promise<Float64Array | undefined> {
     if (this.dead) {
       this.failed?.("the solver stopped");
       return Promise.resolve(undefined);
     }
     return new Promise((done) => {
       this.queued?.done(undefined);
-      this.queued = { values, warm, done };
+      this.queued = { values, done };
       this.ready.then(
         () => this.pump(),
         (error: unknown) => {
@@ -69,8 +69,7 @@ export class SolverClient {
   private dead = false;
 
   private queued:
-    | { values: Float64Array; warm: boolean; done: (points: Float64Array | undefined) => void }
-    | undefined;
+    { values: Float64Array; done: (points: Float64Array | undefined) => void } | undefined;
 
   private pump(): void {
     if (this.dead) {
@@ -79,14 +78,14 @@ export class SolverClient {
       return;
     }
     if (this.waiting.size > 0 || !this.queued) return;
-    const { values, warm, done } = this.queued;
+    const { values, done } = this.queued;
     this.queued = undefined;
     const id = this.next++;
     this.waiting.set(id, (points) => {
       done(points);
       this.pump();
     });
-    this.send({ kind: "solve", id, values, warm });
+    this.send({ kind: "solve", id, values });
   }
 
   private send(message: Request, transfer: Transferable[] = []): void {
