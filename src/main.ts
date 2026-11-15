@@ -100,19 +100,22 @@ async function start(): Promise<void> {
   };
 
   const touches = new Map<number, [number, number]>();
-  let travelled = 0;
+  let down: [number, number] = [0, 0];
+  let panning = false;
   let wasPinch = false;
 
   canvas.addEventListener("pointerdown", (event) => {
     if (event.button !== 0) return;
     canvas.setPointerCapture(event.pointerId);
+    const at = local(event);
     if (touches.size === 0) {
-      travelled = 0;
+      down = at;
+      panning = false;
       wasPinch = false;
     } else {
       wasPinch = true;
     }
-    touches.set(event.pointerId, local(event));
+    touches.set(event.pointerId, at);
   });
 
   canvas.addEventListener("pointermove", (event) => {
@@ -129,8 +132,8 @@ async function start(): Promise<void> {
       if (was > 0) camera.zoomAt((now[0] + other[0]) / 2, (now[1] + other[1]) / 2, is / was);
       touches.set(event.pointerId, now);
     } else {
-      travelled += Math.hypot(now[0] - before[0], now[1] - before[1]);
-      if (travelled < TAP_SLOP_PX) return;
+      panning ||= Math.hypot(now[0] - down[0], now[1] - down[1]) >= TAP_SLOP_PX;
+      if (!panning) return;
       camera.panBy(now[0] - before[0], now[1] - before[1]);
       touches.set(event.pointerId, now);
     }
@@ -140,7 +143,7 @@ async function start(): Promise<void> {
   const release = (event: PointerEvent): void => {
     if (!touches.delete(event.pointerId)) return;
     const tap = event.type === "pointerup" && touches.size === 0 && !wasPinch;
-    if (tap && travelled < TAP_SLOP_PX) pick(atomUnder(...local(event)));
+    if (tap && !panning) pick(atomUnder(...local(event)));
   };
   canvas.addEventListener("pointerup", release);
   canvas.addEventListener("pointercancel", release);

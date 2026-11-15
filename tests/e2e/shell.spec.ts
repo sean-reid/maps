@@ -87,6 +87,32 @@ test("the keyboard zooms, picks the country at the centre and clears it", async 
   await map.press("Control+0");
   await map.press("Enter");
   await expect(page.locator("#readout b")).toHaveText(first ?? "");
+  await map.press("Escape");
+  await map.press("0");
+  await map.press("Enter");
+  await expect(page.locator("#readout")).not.toContainText(first ?? "");
+});
+
+test("a press that jitters a pixel or two still selects", async ({ page }) => {
+  const box = await open(page);
+  const { x, y } = screenOf("BRA", box);
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  for (const [dx, dy] of [
+    [1, 0],
+    [1, 1],
+    [-1, 1],
+    [-1, -1],
+    [1, -1],
+    [0, 1],
+    [1, 0],
+    [0, 0],
+  ]) {
+    await page.mouse.move(x + (dx ?? 0), y + (dy ?? 0));
+  }
+  await page.mouse.up();
+  await page.mouse.move(box.x + 2, box.y + box.height - 2);
+  await expect(page.locator("#readout")).toContainText("Brazil");
 });
 
 test("a touch tap pins a country and a second tap lets it go", async ({ page, hasTouch }) => {
