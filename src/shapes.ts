@@ -12,7 +12,7 @@ export interface Shape {
   area: number;
   box: Box;
   /** Centroid and box of the atom's largest ring, where its label sits. */
-  anchor: { x: number; y: number; width: number; height: number };
+  anchor: { x: number; y: number; width: number; height: number; area: number };
 }
 
 /** Per-atom area, bounds and label anchor for one set of vertex positions. */
@@ -20,7 +20,7 @@ export function measure(geo: Geometry, points: Float64Array): Shape[] {
   const shapes: Shape[] = geo.atoms.map(() => ({
     area: 0,
     box: { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity },
-    anchor: { x: 0, y: 0, width: 0, height: 0 },
+    anchor: { x: 0, y: 0, width: 0, height: 0, area: 0 },
   }));
   const signed = new Float64Array(geo.atoms.length);
   const largest = new Float64Array(geo.atoms.length);
@@ -56,6 +56,7 @@ export function measure(geo: Geometry, points: Float64Array): Shape[] {
         y: cy / (6 * a),
         width: ring.x1 - ring.x0,
         height: ring.y1 - ring.y0,
+        area: Math.abs(a),
       };
     }
   }
