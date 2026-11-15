@@ -97,3 +97,126 @@ fn a_huge_blur_skip_stays_finite() {
         .unwrap();
     assert!(out.iter().all(|v| v.is_finite()));
 }
+
+fn proper_crossings(ring: &[f64]) -> usize {
+    let n = ring.len() / 2;
+    let p = |i: usize| (ring[2 * (i % n)], ring[2 * (i % n) + 1]);
+    let o = |a: (f64, f64), b: (f64, f64), c: (f64, f64)| {
+        (b.0 - a.0) * (c.1 - a.1) - (b.1 - a.1) * (c.0 - a.0)
+    };
+    let mut count = 0;
+    for i in 0..n {
+        for j in i + 2..n {
+            if (j + 1) % n == i {
+                continue;
+            }
+            let (a, b, c, d) = (p(i), p(i + 1), p(j), p(j + 1));
+            if o(a, b, c) * o(a, b, d) < 0.0 && o(c, d, a) * o(c, d, b) < 0.0 {
+                count += 1;
+            }
+        }
+    }
+    count
+}
+
+fn notched_square() -> Vec<f64> {
+    vec![
+        2.0, 2.0, 18.0, 2.0, 18.0, 18.0, 14.0, 18.0, 8.0, 18.0, 10.0, 20.0, 11.0, 16.0, 6.0, 18.0,
+        2.0, 18.0,
+    ]
+}
+
+fn single(pts: Vec<f64>) -> Cartogram {
+    Cartogram::new(24, 24, 1, vec![0, pts.len() / 2], vec![0], pts).unwrap()
+}
+
+#[test]
+fn a_notch_that_crosses_itself_is_pulled_to_the_crossing() {
+    let pts = notched_square();
+    let c = single(pts.clone());
+    assert_eq!(proper_crossings(&pts), 1);
+    let mut out = pts.clone();
+    let moved = c.untangle(&mut out);
+    assert_eq!(proper_crossings(&out), 0);
+    assert_eq!(moved, 2);
+    let (before, after) = (ring_area(&pts).abs(), ring_area(&out).abs());
+    assert!((after - before).abs() < 0.02 * before, "{before} {after}");
+}
+
+#[test]
+fn untangling_twice_changes_nothing_more() {
+    let c = single(notched_square());
+    let mut once = c.points().to_vec();
+    c.untangle(&mut once);
+    let mut twice = once.clone();
+    assert_eq!(c.untangle(&mut twice), 0);
+    assert_eq!(once, twice);
+}
+
+#[test]
+fn a_loop_on_a_shared_border_keeps_both_sides_identical() {
+    let border = [
+        (10.0, 2.0),
+        (10.0, 6.0),
+        (8.0, 11.0),
+        (12.0, 10.0),
+        (10.0, 8.0),
+        (10.0, 14.0),
+        (10.0, 18.0),
+    ];
+    let left: Vec<(f64, f64)> = [(2.0, 2.0)]
+        .into_iter()
+        .chain(border)
+        .chain([(2.0, 18.0)])
+        .collect();
+    let right: Vec<(f64, f64)> = [(10.0, 18.0), (18.0, 18.0), (18.0, 2.0)]
+        .into_iter()
+        .chain(border[..6].iter().copied())
+        .collect();
+    let (la, rb) = (left.len(), right.len());
+    let pts: Vec<f64> = left.iter().chain(&right).flat_map(|p| [p.0, p.1]).collect();
+    let c = Cartogram::new(24, 24, 2, vec![0, la, la + rb], vec![0, 1], pts.clone()).unwrap();
+    assert_eq!(proper_crossings(&pts[..2 * la]), 1);
+    assert_eq!(proper_crossings(&pts[2 * la..]), 1);
+    let mut out = pts.clone();
+    assert!(c.untangle(&mut out) > 0);
+    assert_eq!(proper_crossings(&out[..2 * la]), 0);
+    assert_eq!(proper_crossings(&out[2 * la..]), 0);
+    let n = pts.len() / 2;
+    let mut shared = 0;
+    for i in 0..n {
+        for j in i + 1..n {
+            if pts[2 * i..2 * i + 2] == pts[2 * j..2 * j + 2] {
+                assert_eq!(out[2 * i..2 * i + 2], out[2 * j..2 * j + 2]);
+                shared += 1;
+            }
+        }
+    }
+    assert_eq!(shared, 7);
+}
+
+#[test]
+fn clean_rings_and_solves_are_returned_untouched() {
+    let c = square(8, 8);
+    let mut out = c.points().to_vec();
+    assert_eq!(c.untangle(&mut out), 0);
+    assert_eq!(out, c.points());
+    let (solved, stats) = c.solve(&[1.0], &Options::default()).unwrap();
+    assert_eq!(stats.collapsed, 0);
+    assert_eq!(solved, c.points());
+}
+
+#[test]
+fn a_loop_longer_than_the_look_ahead_is_left_alone() {
+    let pts: Vec<f64> = (0..100)
+        .flat_map(|k| {
+            let t = std::f64::consts::TAU * (k as f64 + 0.5) / 100.0;
+            [30.0 + 25.0 * t.cos(), 30.0 + 25.0 * t.sin() * t.cos()]
+        })
+        .collect();
+    let c = single(pts.clone());
+    assert_eq!(proper_crossings(&pts), 1);
+    let mut out = pts.clone();
+    assert_eq!(c.untangle(&mut out), 0);
+    assert_eq!(out, pts);
+}
