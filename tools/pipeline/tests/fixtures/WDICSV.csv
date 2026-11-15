@@ -1,0 +1,38 @@
+﻿Country Name,Country Code,Indicator Name,Indicator Code,1944,1945,1946,1947,1948,1949,1950
+Delta,DDD,"Widgets, total (million units)",A.KEEP.TOTL,,,,,,9,
+"Beta, the",BBB,"Widgets, total (million units)",A.KEEP.TOTL,50,,,2,3,4,
+Alpha,AAA,"Widgets, total (million units)",A.KEEP.TOTL,,,,1.5,,5,
+Gamma,CCC,"Widgets, total (million units)",A.KEEP.TOTL,,,,,,,
+World,WLD,"Widgets, total (million units)",A.KEEP.TOTL,,,999,999,999,999,999
+Alpha,AAA,Average widget size (cm),B.AVG,,,1,,,,
+"Beta, the",BBB,Average widget size (cm),B.AVG,,,1,,,,
+Gamma,CCC,Average widget size (cm),B.AVG,,,1,,,,
+Alpha,AAA,Licensed widgets,C.LIC,,,1,,,,
+"Beta, the",BBB,Licensed widgets,C.LIC,,,1,,,,
+Gamma,CCC,Licensed widgets,C.LIC,,,1,,,,
+Alpha,AAA,Widget balance,D.NEG,,,1,1,1,1,1
+"Beta, the",BBB,Widget balance,D.NEG,,,1,1,1,1,1
+Gamma,CCC,Widget balance,D.NEG,,,1,1,1,1,1
+Delta,DDD,Widget balance,D.NEG,,,1,1,-1,1,1
+Alpha,AAA,Scattered widgets,E.FEW,,,,1,,,
+"Beta, the",BBB,Scattered widgets,E.FEW,,,,,2,,
+Gamma,CCC,Scattered widgets,E.FEW,,,,,,3,
+Alpha,AAA,Plain title,F.NOPAREN,7,8,1,,,,
+"Beta, the",BBB,Plain title,F.NOPAREN,,,2,,,,
+Gamma,CCC,Plain title,F.NOPAREN,,,3,,,,
+Alpha,AAA,Widgets by region (count),G.NEGAGG,,,,,1,,
+"Beta, the",BBB,Widgets by region (count),G.NEGAGG,,,,,2,,
+Gamma,CCC,Widgets by region (count),G.NEGAGG,,,,,3,,
+Delta,DDD,Widgets by region (count),G.NEGAGG,,,,,4,,
+World,WLD,Widgets by region (count),G.NEGAGG,,,,,-5,,
+Alpha,AAA,Land (area) of things (sq. km),H.NESTED,,,,,,,1
+"Beta, the",BBB,Land (area) of things (sq. km),H.NESTED,,,,,,,2
+Gamma,CCC,Land (area) of things (sq. km),H.NESTED,,,,,,,3
+Alpha,AAA,Unlisted,I.NOMETA,,,1,,,,
+Alpha,AAA,Early negatives (units),J.OLDNEG,-4,,1,,,,
+"Beta, the",BBB,Early negatives (units),J.OLDNEG,,,2,,,,
+Gamma,CCC,Early negatives (units),J.OLDNEG,,,3,,,,
+Alpha,AAA,Sparse widgets,K.DOTS,,,..,1,,,
+"Beta, the",BBB,Sparse widgets,K.DOTS,,,,2,1e99,,
+Gamma,CCC,Sparse widgets,K.DOTS,,,,3,,,
+Bad,XX,Sparse widgets,K.DOTS,,,,7,,,

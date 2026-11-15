@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/cartogram"]
+members = ["crates/cartogram", "tools/pipeline"]
 resolver = "2"
 
 [profile.release]
