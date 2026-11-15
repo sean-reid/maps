@@ -48,23 +48,12 @@ test("the WASM solver sizes countries by population", () => {
   expect(share("CAN")).toBeLessThan((before[index("CAN")]?.area ?? 0) / land / 4);
 });
 
-test("a warm start for the next year lands close to a cold solve", () => {
-  const cold2019 = solver.solve(valuesAt(population, rows, 2019)).points;
-  const warm = solver.solve(valuesAt(population, rows, 2020), cold2019);
-  expect(warm.meanError).toBeLessThan(0.02);
-  const coldSolve = solver.solve(valuesAt(population, rows, 2020));
-  expect(coldSolve.meanError).toBeLessThan(0.02);
-  const cold = coldSolve.points;
-  let worst = 0;
-  let sum = 0;
-  for (let i = 0; i < cold.length; i++) {
-    const gap = Math.abs((cold[i] ?? 0) - (warm.points[i] ?? 0));
-    worst = Math.max(worst, gap);
-    sum += gap;
-  }
-  // Both satisfy the areas; they may place a vertex a few cells apart on a 512-cell map.
-  expect(sum / cold.length).toBeLessThan(0.5);
-  expect(worst).toBeLessThan(8);
+test("a year looks the same however it was reached", () => {
+  const values = valuesAt(population, rows, 2020);
+  const first = solver.solve(values).points;
+  solver.solve(valuesAt(population, rows, 1960));
+  solver.solve(valuesAt(population, rows, 1990));
+  expect(solver.solve(values).points).toEqual(first);
 });
 
 test("no year of either series stalls the solver", () => {
@@ -81,10 +70,8 @@ test("no year of either series stalls the solver", () => {
   }
 });
 
-test("an error raised inside the WASM carries its message, and the solver still works after it", () => {
+test("the solver still works after refusing bad input", () => {
   const values = valuesAt(population, rows, 2020);
-  const start = new Float64Array(geo.points.length).fill(NaN);
-  expect(() => solver.solve(values, start)).toThrow(/start must be finite/);
   expect(() => solver.solve(new Float64Array(3))).toThrow(/3 values/);
   expect(solver.solve(values).meanError).toBeLessThan(0.02);
 });

@@ -136,7 +136,7 @@ async function start(): Promise<void> {
     yearInput.value = String(to);
     yearLabel.textContent = String(to);
     const values = valuesAt(series, rows, to);
-    const points = await solver.solve(values, shown.frame !== undefined);
+    const points = await solver.solve(values);
     if (!points || open?.meta !== meta) return;
     shown.frame = {
       values,

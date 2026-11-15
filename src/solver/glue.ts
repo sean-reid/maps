@@ -36,12 +36,13 @@ export interface Solution {
 }
 
 export interface Solver {
-  /** One value per atom, NaN for missing. `start` continues from an earlier solution. */
-  solve(values: Float64Array, start?: Float64Array): Solution;
+  /**
+   * One value per atom, NaN for missing. Every solve starts from the undeformed map: continuing
+   * from an earlier solution compounds its folds, and a year would then look different depending
+   * on how it was reached.
+   */
+  solve(values: Float64Array): Solution;
 }
-
-/** Blur levels a warm start skips: the coarse passes only matter far from a solution. */
-const WARM_SKIP_BLUR = 3;
 
 export async function createSolver(wasm: BufferSource, geo: Geometry): Promise<Solver> {
   const { instance } = await WebAssembly.instantiate(wasm, {});
@@ -76,28 +77,17 @@ export async function createSolver(wasm: BufferSource, geo: Geometry): Promise<S
   );
   x.free_f64(startPtr, Math.ceil((rings + 1) / 2));
   x.free_f64(ownerPtr, Math.ceil(rings / 2));
-  if (!solver) {
-    x.free_f64(ptsPtr, 2 * count);
-    throw failure();
-  }
+  x.free_f64(ptsPtr, 2 * count);
+  if (!solver) throw failure();
   const valuesPtr = x.alloc_f64(regions);
   const outPtr = x.alloc_f64(2 * count);
 
   return {
-    solve(values, start) {
+    solve(values) {
       if (values.length !== regions)
         throw new Error(`${values.length} values for ${regions} atoms`);
-      if (start && start.length !== 2 * count) throw new Error("start is not the size of the map");
       f64(valuesPtr, regions).set(values);
-      if (start) f64(ptsPtr, 2 * count).set(start);
-      const status = x.solver_solve(
-        solver,
-        valuesPtr,
-        regions,
-        start ? ptsPtr : 0,
-        start ? WARM_SKIP_BLUR : 0,
-        outPtr,
-      );
+      const status = x.solver_solve(solver, valuesPtr, regions, 0, 0, outPtr);
       if (status !== 0) throw failure();
       return {
         points: f64(outPtr, 2 * count).slice(),
