@@ -4,7 +4,7 @@ import { createMap } from "./map.ts";
 import { createSearchBox } from "./searchbox.ts";
 import { SolverClient } from "./solver/client.ts";
 import { BOUNCE, type Feel, FOLLOW } from "./spring.ts";
-import { latestFullYear, rowsFor, valuesAt } from "./values.ts";
+import { coveredYears, rowsFor, valuesAt } from "./values.ts";
 
 const OPENING = "wdi-sp-pop-totl";
 /** Shortest time a year stays up during playback. */
@@ -187,7 +187,7 @@ async function start(): Promise<void> {
       throw error;
     }
     if (mine !== run) return;
-    const [first, last] = [series.firstYear, series.firstYear + series.years - 1];
+    const { first, last, opening } = coveredYears(series);
     open = { meta, series, rows: rowsFor(series, geo.atoms), first, last };
     title.textContent = meta.title;
     detail.textContent = [meta.unit, meta.source].filter(Boolean).join(", ");
@@ -196,7 +196,7 @@ async function start(): Promise<void> {
     yearInput.max = String(last);
     timeBar.hidden = last === first;
     const kept = shownYear !== undefined && shownYear >= first && shownYear <= last;
-    const to = wanted ?? (kept ? shownYear : latestFullYear(series));
+    const to = wanted ?? (kept ? shownYear : opening);
     await showYear(Math.min(last, Math.max(first, to)), BOUNCE);
   };
 

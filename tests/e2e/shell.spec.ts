@@ -6,7 +6,7 @@ import { layout, type Topology } from "../../src/geometry.ts";
 import { decodeSeries } from "../../src/series.ts";
 import { bounds, measure, type Shape } from "../../src/shapes.ts";
 import { createSolver, type Solver } from "../../src/solver/glue.ts";
-import { latestFullYear, rowsFor, valuesAt } from "../../src/values.ts";
+import { coveredYears, rowsFor, valuesAt } from "../../src/values.ts";
 
 const root = resolve(import.meta.dirname, "../..");
 const geo = layout(
@@ -18,7 +18,7 @@ const population = decodeSeries(
     .buffer,
 );
 const rows = rowsFor(population, geo.atoms);
-const latest = latestFullYear(population);
+const latest = coveredYears(population).opening;
 let solver: Solver;
 const solved = new Map<number, Shape[]>();
 
