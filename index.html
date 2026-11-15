@@ -35,6 +35,11 @@
         aria-label="World map. Arrow keys pan, plus and minus zoom, 0 resets, Enter picks the country at the centre, Escape clears it."
       ></canvas>
       <p id="readout" class="readout" aria-live="off"></p>
+      <div id="time" class="time" hidden>
+        <button id="play" type="button">Play</button>
+        <input id="year" type="range" step="1" aria-label="Year" />
+        <output id="year-label" class="num" for="year"></output>
+      </div>
     </main>
     <footer>
       <a href="https://github.com/sean-reid/maps">source</a>
