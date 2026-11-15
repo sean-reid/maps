@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "series": [
+    {
+      "slug": "wdi-sp-pop-totl",
+      "title": "Population, total",
+      "unit": "",
+      "source": "World Bank WDI",
+      "first": 1960,
+      "last": 2025,
+      "entities": 217
+    },
+    {
+      "slug": "wdi-ny-gdp-mktp-cd",
+      "title": "GDP",
+      "unit": "current US$",
+      "source": "World Bank WDI",
+      "first": 1960,
+      "last": 2025,
+      "entities": 214
+    }
+  ]
+}
