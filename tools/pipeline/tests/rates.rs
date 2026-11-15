@@ -366,8 +366,7 @@ fn a_slug_shared_by_native_and_derived_is_an_error() {
     }
     fs::write(dir.join("WDICSV.csv"), data).unwrap();
     let err = wdi::run(&dir, 3)
-        .err()
-        .expect("collision must fail")
+        .expect_err("collision must fail")
         .to_string();
     assert!(
         err.contains("SH.MED.BEDS.ZS-TOTAL") && err.contains("SH.MED.BEDS.ZS"),

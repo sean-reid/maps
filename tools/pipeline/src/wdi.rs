@@ -1,7 +1,7 @@
 use crate::catalogue::{check_slugs, is_native, norm_unit, resolve_twins, Derived};
 use crate::derive::{self, Rows};
 use crate::format::{is_code, Series};
-use crate::index::Indicator;
+use crate::index::{Indicator, Source};
 use crate::rates::{self, Plan};
 use crate::Result;
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -65,12 +65,12 @@ struct Accumulator {
     rows: BTreeMap<String, Vec<f32>>,
 }
 
-fn reader(path: &Path) -> Result<csv::Reader<File>> {
+pub(crate) fn reader(path: &Path) -> Result<csv::Reader<File>> {
     let file = File::open(path).map_err(|e| format!("{}: {e}", path.display()))?;
     Ok(csv::ReaderBuilder::new().flexible(true).from_reader(file))
 }
 
-fn column(headers: &csv::StringRecord, name: &str) -> Result<usize> {
+pub(crate) fn column(headers: &csv::StringRecord, name: &str) -> Result<usize> {
     let name_at = |h: &str| h.trim_start_matches('\u{feff}').trim() == name;
     headers
         .iter()
@@ -92,7 +92,7 @@ fn parse_wide(cell: &str) -> f64 {
     }
 }
 
-fn field(record: &csv::StringRecord, at: usize) -> &str {
+pub(crate) fn field(record: &csv::StringRecord, at: usize) -> &str {
     record.get(at).unwrap_or("").trim()
 }
 
@@ -186,12 +186,12 @@ fn enough_countries(rows: &BTreeMap<String, Vec<f32>>, width: usize, min: usize)
     (0..width).any(|y| rows.values().filter(|v| v[y].is_finite()).count() >= min)
 }
 
-enum Reject {
+pub(crate) enum Reject {
     Negative,
     TooFew,
 }
 
-fn finish(
+pub(crate) fn finish(
     rows: BTreeMap<String, Vec<f32>>,
     width: usize,
     first_year: u16,
@@ -298,6 +298,7 @@ pub fn run(input: &Path, min_countries: usize) -> Result<(Vec<Indicator>, Stats)
             Ok(series) => {
                 let (title, unit) = split_name(&meta[&code].name);
                 indicators.push(Indicator {
+                    source: Source::Wdi,
                     code,
                     title,
                     unit,
@@ -330,6 +331,7 @@ pub fn run(input: &Path, min_countries: usize) -> Result<(Vec<Indicator>, Stats)
             Ok(series) => {
                 derived.push(Derived::new(
                     Indicator {
+                        source: Source::Wdi,
                         code: code.clone(),
                         title: plan.title.clone(),
                         unit: plan.unit.clone(),

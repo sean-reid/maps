@@ -4,9 +4,25 @@ use serde::Serialize;
 use std::fs;
 use std::path::Path;
 
-pub const SOURCE: &str = "World Bank WDI";
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Source {
+    Wdi,
+    Fao,
+}
 
+impl Source {
+    pub fn name(self) -> &'static str {
+        match self {
+            Source::Wdi => "World Bank WDI",
+            Source::Fao => "FAOSTAT",
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct Indicator {
+    pub source: Source,
+    /// The source's own code; for FAOSTAT it is already the slug.
     pub code: String,
     pub title: String,
     pub unit: String,
@@ -17,9 +33,10 @@ pub struct Indicator {
 
 impl Indicator {
     pub fn slug(&self) -> String {
-        match self.derived {
-            Some(_) => format!("{}-total", slug(&self.code)),
-            None => slug(&self.code),
+        match (self.source, &self.derived) {
+            (Source::Fao, _) => self.code.clone(),
+            (Source::Wdi, Some(_)) => format!("{}-total", slug(&self.code)),
+            (Source::Wdi, None) => slug(&self.code),
         }
     }
 }
@@ -54,7 +71,7 @@ pub fn build(indicators: &[Indicator]) -> Index {
             slug: i.slug(),
             title: i.title.clone(),
             unit: i.unit.clone(),
-            source: SOURCE.to_string(),
+            source: i.source.name().to_string(),
             first: i.series.first_year,
             last: i.series.last_year(),
             entities: i.series.codes.len(),
@@ -122,6 +139,7 @@ mod tests {
 
     fn ind(code: &str, n: usize) -> Indicator {
         Indicator {
+            source: Source::Wdi,
             code: code.into(),
             title: "t".into(),
             unit: String::new(),
