@@ -1,0 +1,38 @@
+name: data
+
+on:
+  schedule:
+    - cron: "17 5 3 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: data
+  cancel-in-progress: false
+
+env:
+  CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+  CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID || '860e267e26cbf52bdca301d114b3c203' }}
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: cargo run --release -p pipeline -- fetch-wdi --to .cache/wdi
+      - run: cargo run --release -p pipeline -- wdi --input .cache/wdi --out .cache/out
+      - name: upload
+        run: node scripts/upload.ts .cache/out "v$(date -u +%F)-${{ github.run_number }}"
+      - name: smoke
+        run: |
+          sleep 70
+          curl -fsS --retry 5 --retry-all-errors --retry-delay 10 -D - -o /dev/null https://maps.dwainosaur.com/api/index \
+            | grep -i "x-data-version: v$(date -u +%F)-${{ github.run_number }}"
