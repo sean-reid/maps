@@ -64,18 +64,41 @@ pub fn write(out: &Path, indicators: &[Indicator]) -> Result<u64> {
         bytes += data.len() as u64;
         files.push((format!("{}.bin", slug(&i.code)), data));
     }
+    if out.as_os_str().is_empty() {
+        return Err("--out is empty".into());
+    }
+    // Everything is staged first, so a failed write leaves the previous output whole.
+    let staged = out.join("series.tmp");
+    if staged.exists() {
+        fs::remove_dir_all(&staged)?;
+    }
+    fs::create_dir_all(&staged)?;
+    let index = out.join("index.json.tmp");
+    let stage = || -> Result<()> {
+        for (name, data) in &files {
+            fs::write(staged.join(name), data)?;
+        }
+        fs::write(&index, serde_json::to_vec(&build(indicators))?)?;
+        Ok(())
+    };
+    if let Err(e) = stage() {
+        let _ = fs::remove_dir_all(&staged);
+        let _ = fs::remove_file(&index);
+        return Err(e);
+    }
     let dir = out.join("series");
-    if dir.exists() {
-        fs::remove_dir_all(&dir)?;
-    }
     fs::create_dir_all(&dir)?;
-    for (name, data) in files {
-        fs::write(dir.join(name), data)?;
+    for entry in fs::read_dir(&dir)? {
+        let path = entry?.path();
+        if path.is_file() && path.extension().is_some_and(|e| e == "bin") {
+            fs::remove_file(path)?;
+        }
     }
-    fs::write(
-        out.join("index.json"),
-        serde_json::to_vec(&build(indicators))?,
-    )?;
+    for (name, _) in &files {
+        fs::rename(staged.join(name), dir.join(name))?;
+    }
+    fs::remove_dir_all(&staged)?;
+    fs::rename(&index, out.join("index.json"))?;
     Ok(bytes)
 }
 
@@ -132,6 +155,28 @@ mod tests {
             .collect();
         names.sort();
         assert_eq!(names, ["wdi-x-y.bin"]);
+        fs::remove_dir_all(&out).unwrap();
+    }
+
+    #[test]
+    fn only_series_files_are_replaced_and_a_failed_run_changes_nothing() {
+        let out = std::env::temp_dir().join(format!("pipeline-keep-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&out);
+        fs::create_dir_all(out.join("series")).unwrap();
+        fs::write(out.join("series/notes.txt"), b"mine").unwrap();
+        write(&out, &[ind("X.Y", 2)]).unwrap();
+        let before = fs::read(out.join("index.json")).unwrap();
+
+        let mut bad = ind("Z.Z", 1);
+        bad.series.codes = vec!["TOOLONG".into()];
+        assert!(write(&out, &[bad]).is_err());
+        assert!(write(Path::new(""), &[ind("X.Y", 2)]).is_err());
+
+        assert_eq!(fs::read(out.join("index.json")).unwrap(), before);
+        assert_eq!(fs::read(out.join("series/notes.txt")).unwrap(), b"mine");
+        assert!(out.join("series/wdi-x-y.bin").exists());
+        assert!(!out.join("series.tmp").exists());
+        assert!(!out.join("index.json.tmp").exists());
         fs::remove_dir_all(&out).unwrap();
     }
 }
