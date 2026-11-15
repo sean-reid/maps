@@ -172,3 +172,135 @@ fn a_missing_directory_or_file_set_is_an_error() {
     assert!(fao::run(&fixtures().join("nope"), 3).is_err());
     assert!(fao::run(&fixtures().join("rates"), 3).is_err());
 }
+
+const HEAD: &str = "Area Code,Area Code (M49),Area,Item Code,Item,Element Code,Element,Year Code,Year,Unit,Value,Flag,Note";
+const HEAD_SOURCE: &str = "Area Code,Area Code (M49),Area,Item Code,Item,Element Code,Element,Year Code,Year,Source Code,Source,Unit,Value,Flag,Note";
+
+fn row(area: (&str, &str, &str), item: &str, year: &str, unit: &str, value: &str) -> String {
+    let (code, m49, name) = area;
+    format!(
+        "\"{code}\",\"'{m49}\",\"{name}\",\"{item}\",\"Wheat\",\"5510\",\"Production\",\"{year}\",\"{year}\",\"{unit}\",\"{value}\",\"A\",\n"
+    )
+}
+
+fn row_source(area: (&str, &str, &str), source: &str, value: &str) -> String {
+    let (code, m49, name) = area;
+    format!(
+        "\"{code}\",\"'{m49}\",\"{name}\",\"15\",\"Wheat\",\"5510\",\"Production\",\"1990\",\"1990\",\"{source}\",\"S\",\"t\",\"{value}\",\"A\",\n"
+    )
+}
+
+const AFG: (&str, &str, &str) = ("2", "004", "Afghanistan");
+const ALB: (&str, &str, &str) = ("3", "008", "Albania");
+const DZA: (&str, &str, &str) = ("4", "012", "Algeria");
+
+fn domain_dir(name: &str, file: &str, text: &str) -> PathBuf {
+    let dir = out_dir(name);
+    fs::create_dir_all(&dir).unwrap();
+    fs::write(dir.join(file), text).unwrap();
+    dir
+}
+
+#[test]
+fn two_areas_on_one_iso_fail_naming_both() {
+    let other = ("999", "004", "Afghanistan again");
+    let text = format!(
+        "{HEAD}\n{}{}",
+        row(AFG, "15", "1990", "t", "1"),
+        row(other, "15", "1990", "t", "2")
+    );
+    let dir = domain_dir("fao-twin-iso", "QCL.csv", &text);
+    let err = fao::run(&dir, 1).unwrap_err().to_string();
+    assert!(
+        err.contains("2 (Afghanistan)")
+            && err.contains("999 (Afghanistan again)")
+            && err.contains("AFG"),
+        "{err}"
+    );
+}
+
+#[test]
+fn a_pair_with_two_base_units_becomes_two_series() {
+    let mut text = format!("{HEAD}\n");
+    for (area, t, number) in [(AFG, "1", "2"), (ALB, "3", "4"), (DZA, "5", "6")] {
+        text += &row(area, "1062", "1990", "t", t);
+        text += &row(area, "1062", "1990", "1000 No", number);
+    }
+    let dir = domain_dir("fao-units", "QCL.csv", &text);
+    let (indicators, stats) = fao::run(&dir, 3).unwrap();
+    let out = out_dir("fao-units-out");
+    index::write(&out, &indicators).unwrap();
+    assert_eq!(
+        series_files(&out),
+        ["fao-qcl-1062-5510-number.bin", "fao-qcl-1062-5510.bin"]
+    );
+    assert_eq!(read_series(&out, "fao-qcl-1062-5510").3, [1.0, 3.0, 5.0]);
+    assert_eq!(
+        read_series(&out, "fao-qcl-1062-5510-number").3,
+        [2000.0, 4000.0, 6000.0]
+    );
+    assert_eq!(stats.domains["QCL"].mixed_units, 1);
+}
+
+#[test]
+fn a_missing_or_unparseable_source_code_loses_to_a_real_one() {
+    let text = format!(
+        "{HEAD_SOURCE}\n{}{}{}{}",
+        row_source(AFG, "", "99"),
+        row_source(AFG, "3051", "5"),
+        row_source(ALB, "x", "7"),
+        row_source(DZA, "3050", "30"),
+    );
+    let dir = domain_dir("fao-rank", "GT.csv", &text);
+    let (indicators, _) = fao::run(&dir, 3).unwrap();
+    let out = out_dir("fao-rank-out");
+    index::write(&out, &indicators).unwrap();
+    assert_eq!(read_series(&out, "fao-gt-15-5510").3, [5.0, 7.0, 30.0]);
+}
+
+#[test]
+fn two_rows_for_one_cell_are_an_error_without_a_source_ranking_them() {
+    let text = format!(
+        "{HEAD}\n{}{}",
+        row(AFG, "15", "1990", "t", "1"),
+        row(AFG, "15", "1990", "t", "2")
+    );
+    let dir = domain_dir("fao-dup", "QCL.csv", &text);
+    let err = fao::run(&dir, 1).unwrap_err().to_string();
+    assert!(
+        err.contains("area 2 (Afghanistan)")
+            && err.contains("item 15")
+            && err.contains("element 5510")
+            && err.contains("year 1990"),
+        "{err}"
+    );
+    let tied = format!(
+        "{HEAD_SOURCE}\n{}{}",
+        row_source(AFG, "3050", "1"),
+        row_source(AFG, "3050", "2")
+    );
+    let dir = domain_dir("fao-tie", "GT.csv", &tied);
+    assert!(fao::run(&dir, 1).is_err());
+}
+
+#[test]
+fn years_that_are_not_a_single_year_in_range_are_counted_and_skipped() {
+    let mut text = format!("{HEAD}\n");
+    for area in [AFG, ALB, DZA] {
+        text += &row(area, "15", "1990", "t", "1");
+    }
+    for year in ["2010-2012", "1945", "2101", "65535", "abc"] {
+        text += &row(AFG, "15", year, "t", "9");
+    }
+    let dir = domain_dir("fao-years", "QCL.csv", &text);
+    let (indicators, stats) = fao::run(&dir, 3).unwrap();
+    assert_eq!(stats.skipped_years, 5);
+    assert!(stats
+        .to_string()
+        .contains("rows with no usable year skipped: 5"));
+    let out = out_dir("fao-years-out");
+    index::write(&out, &indicators).unwrap();
+    let (_, first, years, values) = read_series(&out, "fao-qcl-15-5510");
+    assert_eq!((first, years), (1990, 1));
+    assert_eq!(values, [1.0, 1.0, 1.0]);
+}

@@ -37,18 +37,31 @@ pub fn measure(element: &str, unit: &str) -> Option<Measure> {
         .map(|&(_, factor, unit)| Measure { factor, unit })
 }
 
-pub fn slug(domain: &str, item_code: &str, element_code: &str) -> String {
-    let part = |s: &str| {
-        s.trim()
-            .to_lowercase()
-            .replace(|c: char| !c.is_ascii_alphanumeric(), "-")
-    };
-    format!(
+fn slug_part(s: &str) -> String {
+    let lower = s.trim().to_lowercase();
+    let dashed = lower.replace(|c: char| !c.is_ascii_alphanumeric(), "-");
+    dashed.trim_matches('-').to_string()
+}
+
+/// The first unit a pair carries keeps the plain slug; later ones add their unit.
+pub fn slug(
+    domain: &str,
+    item_code: &str,
+    element_code: &str,
+    unit_at: usize,
+    unit: &str,
+) -> String {
+    let base = format!(
         "fao-{}-{}-{}",
-        part(domain),
-        part(item_code),
-        part(element_code)
-    )
+        slug_part(domain),
+        slug_part(item_code),
+        slug_part(element_code)
+    );
+    if unit_at == 0 {
+        base
+    } else {
+        format!("{base}-{}", slug_part(unit))
+    }
 }
 
 /// Drops a trailing note that only gives a year range or says "production" or "export/import".
@@ -146,8 +159,13 @@ mod tests {
 
     #[test]
     fn slug_follows_domain_item_element() {
-        assert_eq!(slug("QCL", "221", "5312"), "fao-qcl-221-5312");
-        assert_eq!(slug("GT", "5064", "723113"), "fao-gt-5064-723113");
+        assert_eq!(slug("QCL", "221", "5312", 0, "ha"), "fao-qcl-221-5312");
+        assert_eq!(slug("GT", "5064", "723113", 0, "kt"), "fao-gt-5064-723113");
+        assert_eq!(
+            slug("QCL", "1062", "5510", 1, "number"),
+            "fao-qcl-1062-5510-number"
+        );
+        assert_eq!(slug("FO", "1", "5622", 2, "US$"), "fao-fo-1-5622-us");
     }
 
     #[test]

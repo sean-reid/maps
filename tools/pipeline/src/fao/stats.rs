@@ -12,6 +12,8 @@ pub struct DomainStats {
     pub kept: usize,
     pub negative: usize,
     pub too_few_countries: usize,
+    /// (item, element) pairs that carry more than one base unit.
+    pub mixed_units: usize,
     pub items: BTreeSet<String>,
     pub elements: BTreeSet<String>,
     /// (element code, element, unit) with the number of items that have it.
@@ -29,6 +31,8 @@ pub struct Unmapped {
 pub struct Stats {
     pub domains: BTreeMap<String, DomainStats>,
     pub aggregates: BTreeSet<String>,
+    /// Rows whose Year is not a single year from 1946 to 2100.
+    pub skipped_years: usize,
     /// FAO areas below the aggregate range with no M49 on the map, by (code, name).
     pub unmapped: BTreeMap<(String, String), Unmapped>,
 }
@@ -44,12 +48,13 @@ impl fmt::Display for Stats {
         for (domain, d) in &self.domains {
             write!(
                 f,
-                "FAO {domain}: kept {} series from {} items and {} elements, negative {}, too few countries {}",
+                "FAO {domain}: kept {} series from {} items and {} elements, negative {}, too few countries {}, pairs with several units {}",
                 d.kept,
                 d.items.len(),
                 d.elements.len(),
                 d.negative,
-                d.too_few_countries
+                d.too_few_countries,
+                d.mixed_units
             )?;
             for ((code, element, unit), p) in &d.pairs {
                 let verdict = if p.kept { "kept" } else { "refused" };
@@ -61,7 +66,12 @@ impl fmt::Display for Stats {
             }
             writeln!(f)?;
         }
-        write!(f, "FAO aggregate areas dropped: {}", self.aggregates.len())?;
+        write!(
+            f,
+            "FAO aggregate areas dropped: {}, rows with no usable year skipped: {}",
+            self.aggregates.len(),
+            self.skipped_years
+        )?;
         for ((code, name), u) in &self.unmapped {
             write!(
                 f,

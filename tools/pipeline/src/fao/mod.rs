@@ -8,6 +8,8 @@ mod stats;
 use crate::format::is_code;
 use crate::index::{Indicator, Source};
 use crate::wdi::{column, field, finish, reader, Reject, FIRST_YEAR};
+
+const LAST_YEAR: u16 = 2100;
 use crate::Result;
 use areas::{Area, Areas};
 use rules::Measure;
@@ -18,6 +20,8 @@ use std::path::Path;
 type Row = Vec<(f32, u32)>;
 
 struct Acc {
+    /// Position of this base unit among the units its (item, element) pair carries, in file order.
+    unit_at: usize,
     item: String,
     element: String,
     measure: Measure,
@@ -75,12 +79,28 @@ impl Columns {
     }
 }
 
-fn put(row: &mut Row, at: usize, value: f32, source: u32) {
+/// Stores a cell; the lower source code wins. Returns false when two rows tie for the cell.
+fn put(row: &mut Row, at: usize, value: f32, source: u32) -> bool {
     if row.len() <= at {
         row.resize(at + 1, (f32::NAN, u32::MAX));
     }
-    if source < row[at].1 {
-        row[at] = (value, source);
+    match source.cmp(&row[at].1) {
+        std::cmp::Ordering::Less => row[at] = (value, source),
+        std::cmp::Ordering::Equal => return false,
+        std::cmp::Ordering::Greater => {}
+    }
+    true
+}
+
+/// A missing, empty, or unparseable source code ranks below every real one.
+fn source_rank(cell: Option<&str>) -> u32 {
+    match cell {
+        None => u32::MAX - 1,
+        Some(c) => c
+            .parse::<u32>()
+            .ok()
+            .filter(|&n| n < u32::MAX - 1)
+            .unwrap_or(u32::MAX - 1),
     }
 }
 
@@ -88,14 +108,15 @@ fn ingest(
     domain: &str,
     path: &Path,
     areas: &Areas,
-    claimed: &mut HashMap<String, String>,
+    claimed: &mut HashMap<String, (String, String)>,
     stats: &mut Stats,
     min_countries: usize,
 ) -> Result<Vec<(Indicator, String)>> {
     let mut rdr = reader(path)?;
     let cols = Columns::new(&rdr.headers()?.clone())?;
     let mut pairs = Pairs { seen: Vec::new() };
-    let mut accs: HashMap<(String, String), Acc> = HashMap::new();
+    let mut accs: HashMap<(String, String, &'static str), Acc> = HashMap::new();
+    let mut units: HashMap<(String, String), Vec<&'static str>> = HashMap::new();
     let mut refused: BTreeMap<(String, String, String), HashSet<String>> = BTreeMap::new();
     let mut kept_items: BTreeMap<(String, String, String), HashSet<String>> = BTreeMap::new();
     for rec in rdr.records() {
@@ -122,18 +143,36 @@ fn ingest(
         if field(&rec, cols.flag) == "F" {
             continue;
         }
+        let year: u16 = match field(&rec, cols.year).parse() {
+            Ok(y) if (FIRST_YEAR..=LAST_YEAR).contains(&y) => y,
+            _ => {
+                stats.skipped_years += 1;
+                continue;
+            }
+        };
         let value: f64 = match field(&rec, cols.value).parse() {
             Ok(v) if f64::is_finite(v) => v,
             _ => continue,
         };
-        let year: u16 = match field(&rec, cols.year).parse() {
-            Ok(y) if y >= FIRST_YEAR => y,
-            _ => continue,
-        };
         let (code, name) = (field(&rec, cols.area), field(&rec, cols.area_name));
         let area = areas.classify(code, field(&rec, cols.m49));
-        let key = (item_code.to_string(), element_code.to_string());
+        let pair_units = units
+            .entry((item_code.to_string(), element_code.to_string()))
+            .or_default();
+        let unit_at = pair_units
+            .iter()
+            .position(|u| *u == measure.unit)
+            .unwrap_or_else(|| {
+                pair_units.push(measure.unit);
+                pair_units.len() - 1
+            });
+        let key = (
+            item_code.to_string(),
+            element_code.to_string(),
+            measure.unit,
+        );
         let acc = accs.entry(key).or_insert_with(|| Acc {
+            unit_at,
             item: field(&rec, cols.item).to_string(),
             element: element.to_string(),
             measure,
@@ -156,22 +195,25 @@ fn ingest(
                 if !is_code(&iso) {
                     return Err(format!("bad iso {iso:?} for area {name}").into());
                 }
-                if let Some(other) = claimed.insert(iso.clone(), code.to_string()) {
+                if let Some((other, other_name)) =
+                    claimed.insert(iso.clone(), (code.to_string(), name.to_string()))
+                {
                     if other != code {
-                        return Err(format!("areas {other} and {code} both map to {iso}").into());
+                        return Err(format!(
+                            "areas {other} ({other_name}) and {code} ({name}) both map to {iso}"
+                        )
+                        .into());
                     }
                 }
-                let source = match cols.source {
-                    Some(at) => field(&rec, at).parse().unwrap_or(u32::MAX - 1),
-                    None => 0,
-                };
+                let source = source_rank(cols.source.map(|at| field(&rec, at)));
                 let scaled = (value * measure.factor) as f32;
-                put(
-                    acc.rows.entry(iso).or_default(),
-                    (year - FIRST_YEAR) as usize,
-                    scaled,
-                    source,
-                );
+                let row = acc.rows.entry(iso).or_default();
+                if !put(row, (year - FIRST_YEAR) as usize, scaled, source) {
+                    return Err(format!(
+                        "{domain}: two rows for area {code} ({name}), item {item_code}, element {element_code}, year {year}"
+                    )
+                    .into());
+                }
             }
         }
     }
@@ -195,7 +237,8 @@ fn ingest(
             },
         );
     }
-    let mut keys: Vec<(String, String)> = accs.keys().cloned().collect();
+    d.mixed_units += units.values().filter(|u| u.len() > 1).count();
+    let mut keys: Vec<(String, String, &'static str)> = accs.keys().cloned().collect();
     keys.sort();
     let mut out = Vec::new();
     for key in keys {
@@ -226,7 +269,7 @@ fn ingest(
                 }
                 let indicator = Indicator {
                     source: Source::Fao,
-                    code: rules::slug(domain, &key.0, &key.1),
+                    code: rules::slug(domain, &key.0, &key.1, acc.unit_at, acc.measure.unit),
                     title: rules::title(&acc.item, &acc.element),
                     unit: acc.measure.unit.to_string(),
                     series,
