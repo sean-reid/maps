@@ -15,6 +15,7 @@
     "test": "vitest run",
     "size": "node scripts/size.ts",
     "geometry": "node tools/geometry/build.ts",
+    "seed": "node scripts/seed-local.ts",
     "test:e2e": "playwright test",
     "deploy": "npm run build && wrangler deploy"
   },
