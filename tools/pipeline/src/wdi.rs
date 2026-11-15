@@ -8,8 +8,17 @@ use std::path::Path;
 
 pub const DEFAULT_MIN_COUNTRIES: usize = 40;
 pub const FIRST_YEAR: u16 = 1946;
-const AGGREGATION: &str = "Sum";
-const LICENCE: &str = "CC BY-4.0";
+/// Aggregation methods the World Bank uses for quantities that add up across countries.
+const TOTALS: [&str; 2] = ["Sum", "Gap-filled total"];
+
+fn is_total(aggregation: &str) -> bool {
+    TOTALS.contains(&aggregation.trim())
+}
+
+/// The licence column spells it both "CC BY-4.0" and "CC BY 4.0".
+fn is_cc_by(licence: &str) -> bool {
+    licence.trim().replace('-', " ") == "CC BY 4.0"
+}
 
 #[derive(Debug, Default, PartialEq)]
 pub struct Stats {
@@ -26,7 +35,7 @@ impl fmt::Display for Stats {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "indicators {}, kept {}, dropped: no metadata {}, aggregation not Sum {}, licence not {LICENCE} {}, negative {}, too few countries {}",
+            "indicators {}, kept {}, dropped: no metadata {}, aggregation not a total {}, licence not CC BY 4.0 {}, negative {}, too few countries {}",
             self.total, self.kept, self.no_metadata, self.not_sum, self.not_cc_by, self.negative, self.too_few_countries
         )
     }
@@ -178,8 +187,8 @@ pub fn run(input: &Path, min_countries: usize) -> Result<(Vec<Indicator>, Stats)
             stats.total += 1;
             match meta.get(code) {
                 None => stats.no_metadata += 1,
-                Some(m) if m.aggregation != AGGREGATION => stats.not_sum += 1,
-                Some(m) if m.licence != LICENCE => stats.not_cc_by += 1,
+                Some(m) if !is_total(&m.aggregation) => stats.not_sum += 1,
+                Some(m) if !is_cc_by(&m.licence) => stats.not_cc_by += 1,
                 Some(_) => {
                     eligible.insert(code.to_string(), Accumulator::default());
                 }
@@ -230,7 +239,7 @@ pub fn run(input: &Path, min_countries: usize) -> Result<(Vec<Indicator>, Stats)
 
 #[cfg(test)]
 mod tests {
-    use super::split_name;
+    use super::{is_cc_by, is_total, split_name};
 
     #[test]
     fn name_with_unit() {
@@ -262,5 +271,20 @@ mod tests {
             split_name("Imports (goods) of trade"),
             ("Imports (goods) of trade".into(), String::new())
         );
+    }
+
+    #[test]
+    fn both_kinds_of_total_pass_and_averages_do_not() {
+        assert!(is_total("Sum"));
+        assert!(is_total("Gap-filled total"));
+        assert!(!is_total("Weighted average"));
+        assert!(!is_total(""));
+    }
+
+    #[test]
+    fn both_spellings_of_the_licence_pass() {
+        assert!(is_cc_by("CC BY-4.0"));
+        assert!(is_cc_by("CC BY 4.0"));
+        assert!(!is_cc_by("SIPRI terms and conditions"));
     }
 }
