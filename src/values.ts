@@ -31,18 +31,37 @@ export function valuesAt(series: Series, rows: Int32Array, year: number): Float6
   return out;
 }
 
-/** The last year in which most of the series' countries report, so the opening map is not half empty. */
-export function latestFullYear(series: Series): number {
-  const counts = Array.from({ length: series.years }, (_, y) => {
-    let n = 0;
-    for (let row = 0; row < series.codes.length; row++) {
-      if (Number.isFinite(series.values[row * series.years + y])) n++;
+export interface Span {
+  /**
+   * First and last year worth showing: at least half as many countries as the best year.
+   * Only the ends are trimmed; a thin year between two full ones stays.
+   */
+  first: number;
+  last: number;
+  /** The last year with at least 80% of the best year's countries, where the map opens. */
+  opening: number;
+}
+
+/**
+ * The years of a series that have enough countries to make a map. A country counts for every
+ * year between its first and last value, since the gaps between are interpolated when shown.
+ */
+export function coveredYears(series: Series): Span {
+  const counts = new Array<number>(series.years).fill(0);
+  for (let row = 0; row < series.codes.length; row++) {
+    let [from, to] = [-1, -1];
+    for (let y = 0; y < series.years; y++) {
+      if (!Number.isFinite(series.values[row * series.years + y])) continue;
+      if (from < 0) from = y;
+      to = y;
     }
-    return n;
-  });
-  const most = Math.max(...counts);
-  for (let y = series.years - 1; y >= 0; y--) {
-    if ((counts[y] ?? 0) >= 0.8 * most) return series.firstYear + y;
+    for (let y = from; y >= 0 && y <= to; y++) counts[y] = (counts[y] ?? 0) + 1;
   }
-  return series.firstYear;
+  const most = Math.max(0, ...counts);
+  const enough = (share: number): number[] =>
+    counts.flatMap((n, y) => (most > 0 && n >= share * most ? [series.firstYear + y] : []));
+  const shown = enough(0.5);
+  const first = shown[0] ?? series.firstYear;
+  const last = shown.at(-1) ?? series.firstYear;
+  return { first, last, opening: enough(0.8).at(-1) ?? last };
 }

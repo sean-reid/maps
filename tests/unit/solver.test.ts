@@ -5,7 +5,7 @@ import { layout, type Topology } from "../../src/geometry.ts";
 import { decodeSeries } from "../../src/series.ts";
 import { measure } from "../../src/shapes.ts";
 import { createSolver, type Solver } from "../../src/solver/glue.ts";
-import { latestFullYear, rowsFor, valuesAt } from "../../src/values.ts";
+import { coveredYears, rowsFor, valuesAt } from "../../src/values.ts";
 
 const root = resolve(import.meta.dirname, "../..");
 const geo = layout(
@@ -27,7 +27,7 @@ test("population reaches the map through the series decoder, by country code", (
   expect(values[index("KOS")]).toBeGreaterThan(1e6);
   expect(values[index("ATF")]).toBeNaN();
   expect(valuesAt(population, rows, 1900).every(Number.isNaN)).toBe(true);
-  expect(latestFullYear(population)).toBeGreaterThanOrEqual(2022);
+  expect(coveredYears(population)).toEqual({ first: 1960, last: 2025, opening: 2025 });
 });
 
 test("the WASM solver sizes countries by population", () => {
@@ -102,8 +102,47 @@ test("gaps are interpolated, edges are not extended, and empty input is safe", (
   expect([...valuesAt(series, r, 2004)]).toEqual([nan, 8, 1, nan]);
   expect([...valuesAt(series, r, 2000)]).toEqual([10, nan, 1, nan]);
   expect(valuesAt(series, r, 2005).every(Number.isNaN)).toBe(true);
-  expect(latestFullYear(series)).toBe(2003);
+  expect(coveredYears(series)).toEqual({ first: 2000, last: 2004, opening: 2003 });
   const empty = { codes: [], firstYear: 1990, years: 0, values: new Float32Array(0) };
-  expect(latestFullYear(empty)).toBe(1990);
+  expect(coveredYears(empty)).toEqual({ first: 1990, last: 1990, opening: 1990 });
   expect(valuesAt(empty, rowsFor(empty, atoms), 1990).every(Number.isNaN)).toBe(true);
+});
+
+test("years with too few countries are left off the ends of a series", () => {
+  const nan = NaN;
+  // Ten countries: one reports from 2000, the rest start in 2003, 2004 or 2005; two stop early.
+  const rowsOf = [
+    [1, 1, 1, 1, 1, 1, 1, 1],
+    [nan, nan, nan, 1, nan, nan, 1, 1],
+    [nan, nan, nan, 1, 1, 1, 1, 1],
+    [nan, nan, nan, 1, 1, 1, 1, 1],
+    [nan, nan, nan, nan, 1, 1, 1, 1],
+    [nan, nan, nan, nan, 1, 1, 1, 1],
+    [nan, nan, nan, nan, 1, 1, 1, nan],
+    [nan, nan, nan, nan, 1, 1, nan, nan],
+    [nan, nan, nan, nan, nan, 1, 1, nan],
+    [nan, nan, nan, nan, nan, 1, 1, nan],
+  ];
+  const series = {
+    codes: rowsOf.map((_, i) => `C${String(i).padStart(2, "0")}`),
+    firstYear: 2000,
+    years: 8,
+    values: Float32Array.from(rowsOf.flat()),
+  };
+  // Counts by year, gaps interpolated: 1, 1, 1, 4, 8, 10, 9, 6.
+  expect(coveredYears(series)).toEqual({ first: 2004, last: 2007, opening: 2006 });
+});
+
+test("a thin year between two full ones stays in the range", () => {
+  const nan = NaN;
+  // Four countries report in 2000, 2001, 2003 and 2004; in 2002 only one does, and
+  // the others are interpolated across it, so it still counts as covered.
+  const row = [1, 1, nan, 1, 1];
+  const series = {
+    codes: ["AAA", "BBB", "CCC", "DDD"],
+    firstYear: 2000,
+    years: 5,
+    values: Float32Array.from([[1, 1, 1, 1, 1], row, row, row].flat()),
+  };
+  expect(coveredYears(series)).toEqual({ first: 2000, last: 2004, opening: 2004 });
 });

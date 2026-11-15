@@ -1,4 +1,8 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
+import { decodeSeries } from "../../src/series.ts";
+import { coveredYears } from "../../src/values.ts";
 
 async function open(page: Page, path = "/") {
   await page.emulateMedia({ reducedMotion: "reduce" });
@@ -149,4 +153,55 @@ test("a map reached by switching series and stepping years matches the one loade
   await page.locator("#year").blur();
   await page.mouse.move(2, 2);
   expect(await picture()).toBe(direct);
+});
+
+/** A series in the binary format: every country reports from `full` on, only the first three before. */
+function sparseSeries(codes: string[], firstYear: number, years: number, full: number): Buffer {
+  const header = 12 + 3 * codes.length;
+  const padded = header + ((4 - (header % 4)) % 4);
+  const bytes = Buffer.alloc(padded + 4 * codes.length * years);
+  bytes.write("MSR1", 0, "latin1");
+  bytes.writeUInt16LE(codes.length, 4);
+  bytes.writeUInt16LE(firstYear, 6);
+  bytes.writeUInt16LE(years, 8);
+  codes.forEach((code, i) => bytes.write(code, 12 + 3 * i, "latin1"));
+  codes.forEach((_, row) => {
+    for (let y = 0; y < years; y++) {
+      const has = row < 3 || firstYear + y >= full;
+      bytes.writeFloatLE(has ? 100 + row + y : NaN, padded + 4 * (row * years + y));
+    }
+  });
+  return bytes;
+}
+
+test("years with too few countries are left out of the range, and a carried year falls back", async ({
+  page,
+}) => {
+  const population = decodeSeries(
+    new Uint8Array(
+      readFileSync(resolve(import.meta.dirname, "../fixtures/data/series/wdi-sp-pop-totl.bin")),
+    ).buffer,
+  );
+  const body = sparseSeries(population.codes.slice(0, 60), 2000, 10, 2004);
+  expect(coveredYears(decodeSeries(new Uint8Array(body).buffer))).toEqual({
+    first: 2004,
+    last: 2009,
+    opening: 2009,
+  });
+  await page.route("**/series/wdi-ny-gdp-mktp-cd.bin", (route) =>
+    route.fulfill({ status: 200, contentType: "application/octet-stream", body }),
+  );
+
+  await open(page, "/wdi-ny-gdp-mktp-cd/2001");
+  await expect(page.locator("#year-label")).toHaveText("2004");
+  await expect(page.locator("#year")).toHaveAttribute("min", "2004");
+  await expect(page.locator("#year")).toHaveAttribute("max", "2009");
+  await expect(page).toHaveURL(/\/wdi-ny-gdp-mktp-cd\/2004$/);
+
+  await open(page, "/wdi-sp-pop-totl/2002");
+  const search = page.getByRole("combobox", { name: "Search series" });
+  await search.fill("gdp");
+  await search.press("Enter");
+  await shows(page, "wdi-ny-gdp-mktp-cd");
+  await expect(page.locator("#year-label")).toHaveText("2009");
 });
