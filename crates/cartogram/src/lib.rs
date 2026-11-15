@@ -5,6 +5,9 @@
 use rustdct::{DctPlanner, TransformType2And3};
 use std::sync::Arc;
 
+mod untangle;
+use untangle::Groups;
+
 #[derive(Clone, Debug)]
 pub struct Options {
     pub max_iter: usize,
@@ -46,6 +49,10 @@ pub struct Stats {
     pub mean_err: f64,
     /// An advection hit its step cap before the flow finished. False says nothing about accuracy.
     pub truncated: bool,
+    /// Vertices the untangling pass moved off the flow's result.
+    pub collapsed: usize,
+    /// Crossings between edges within the untangling reach that the pass left.
+    pub crossings: usize,
 }
 
 const MAX_STEPS: usize = 2000;
@@ -67,6 +74,7 @@ pub struct Cartogram {
     ring_start: Vec<usize>,
     ring_region: Vec<usize>,
     pts: Vec<f64>,
+    groups: Groups,
     dct_x: Arc<dyn TransformType2And3<f64>>,
     dct_y: Arc<dyn TransformType2And3<f64>>,
 }
@@ -101,6 +109,7 @@ impl Cartogram {
         if pts.iter().any(|v| !v.is_finite()) {
             return Err("points must be finite".into());
         }
+        let groups = Groups::new(&pts, &ring_start);
         let mut planner = DctPlanner::new();
         Ok(Cartogram {
             lx,
@@ -109,6 +118,7 @@ impl Cartogram {
             ring_start,
             ring_region,
             pts,
+            groups,
             dct_x: planner.plan_dct2(lx),
             dct_y: planner.plan_dct2(ly),
         })
@@ -217,6 +227,8 @@ impl Cartogram {
             max_err: f64::MAX,
             mean_err: f64::MAX,
             truncated: false,
+            collapsed: 0,
+            crossings: 0,
         };
         for it in 0..opt.max_iter {
             let area = self.areas(&pts);
@@ -246,6 +258,7 @@ impl Cartogram {
             stats.truncated |= !finished;
             stats.iters = it + 1;
         }
+        (stats.collapsed, stats.crossings) = self.untangle(&mut pts);
         let area = self.areas(&pts);
         let (mx, mean) = errors(&area, &target);
         stats.max_err = mx;
@@ -439,11 +452,10 @@ fn errors(area: &[f64], target: &[f64]) -> (f64, f64) {
     let mut mx: f64 = 0.0;
     let mut mean = 0.0;
     for (a, t) in area.iter().zip(target) {
-        // A region with no area has no vertices the flow could move apart.
-        if *a <= 0.0 {
+        if *t <= 0.0 {
             continue;
         }
-        let e = (a - t).abs() / t;
+        let e = if *a <= 0.0 { 1.0 } else { (a - t).abs() / t };
         mx = mx.max(e);
         mean += e * t / total;
     }
