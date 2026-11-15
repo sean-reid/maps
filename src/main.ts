@@ -104,7 +104,9 @@ async function start(): Promise<void> {
     first: number;
     last: number;
   }
+  // Undefined while a series loads, so the slider and playback cannot act on the one being left.
   let open: Open | undefined;
+  let target: SeriesMeta | undefined;
   let year = 0;
   let playing = false;
   // Retired by anything that starts a different series, year or playback, so stale work stops.
@@ -149,6 +151,9 @@ async function start(): Promise<void> {
   const openSeries = async (meta: SeriesMeta, wanted: number | undefined): Promise<void> => {
     stop();
     const mine = run;
+    const shownYear = open ? year : undefined;
+    open = undefined;
+    target = meta;
     const series = await loadSeries(catalogue.version, meta.slug);
     if (mine !== run) return;
     const [first, last] = [series.firstYear, series.firstYear + series.years - 1];
@@ -159,7 +164,13 @@ async function start(): Promise<void> {
     yearInput.min = String(first);
     yearInput.max = String(last);
     timeBar.hidden = last === first;
-    await showYear(Math.min(last, Math.max(first, wanted ?? latestFullYear(series))), BOUNCE);
+    const kept = shownYear !== undefined && shownYear >= first && shownYear <= last;
+    const to = wanted ?? (kept ? shownYear : latestFullYear(series));
+    await showYear(Math.min(last, Math.max(first, to)), BOUNCE);
+  };
+
+  const report = (error: unknown): void => {
+    readout.textContent = error instanceof Error ? error.message : "That series did not load.";
   };
 
   const openPath = (path: string): Promise<void> => {
@@ -195,13 +206,17 @@ async function start(): Promise<void> {
   });
 
   createSearchBox(searchInput, searchList, catalogue.series, (meta) => {
-    if (meta === open?.meta) return;
-    // A new series is a new history entry, at the year on screen where the series has it.
+    canvas.focus({ preventScroll: true });
+    if (meta === target) return;
+    // A new series is a new history entry; it opens at the year on screen where it has that year.
     flushPath();
     history.pushState(null, "", `/${meta.slug}`);
-    void openSeries(meta, open && year >= meta.first && year <= meta.last ? year : undefined);
+    openSeries(meta, undefined).catch(report);
   });
-  window.addEventListener("popstate", () => void openPath(location.pathname));
+  window.addEventListener("popstate", () => {
+    dropPath();
+    openPath(location.pathname).catch(report);
+  });
 
   await openPath(location.pathname);
 }
@@ -218,6 +233,12 @@ function flushPath(): void {
   } catch {
     // Browsers cap how often the history may be written; the next settled change writes the path.
   }
+  pendingPath = undefined;
+}
+
+/** Forgets the waiting path: the entry it was meant for is no longer the current one. */
+function dropPath(): void {
+  clearTimeout(pathTimer);
   pendingPath = undefined;
 }
 

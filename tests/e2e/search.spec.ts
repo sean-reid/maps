@@ -57,6 +57,7 @@ test("a query nothing matches says so and Enter does nothing", async ({ page }) 
   const search = page.getByRole("combobox", { name: "Search series" });
   await search.fill("zebra");
   await expect(page.getByRole("listbox")).toHaveText("No series by that name");
+  await expect(page.getByRole("option")).toHaveAttribute("aria-disabled", "true");
   await search.press("Enter");
   await expect(page.locator("html")).toHaveAttribute("data-series", "wdi-sp-pop-totl");
 });
@@ -73,6 +74,28 @@ test("clicking a result switches series, and Back returns to the one before", as
   await expect(page.locator("#year-label")).toHaveText("1990");
   await page.goForward();
   await shows(page, "wdi-ny-gdp-mktp-cd");
+});
+
+test("Back straight after a pick keeps the address of the series it returns to", async ({
+  page,
+}) => {
+  await open(page, "/wdi-sp-pop-totl/1990");
+  await page.getByRole("combobox", { name: "Search series" }).fill("gdp");
+  await page.getByRole("option", { name: /^GDP/ }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-series", "wdi-ny-gdp-mktp-cd");
+  await page.goBack();
+  await shows(page, "wdi-sp-pop-totl");
+  await page.waitForTimeout(600);
+  await expect(page).toHaveURL(/\/wdi-sp-pop-totl\/1990$/);
+});
+
+test("after a pick the keyboard is on the map", async ({ page }) => {
+  await open(page);
+  const search = page.getByRole("combobox", { name: "Search series" });
+  await search.fill("gdp");
+  await search.press("Enter");
+  await shows(page, "wdi-ny-gdp-mktp-cd");
+  await expect(page.locator("#map")).toBeFocused();
 });
 
 test("without data the search box stays disabled", async ({ page }) => {

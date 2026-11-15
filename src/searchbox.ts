@@ -3,7 +3,7 @@ import { prepare, search } from "./search.ts";
 
 /**
  * Wires a text input and a list into a combobox over the series index.
- * `onPick` hears the chosen series; the box then empties and closes.
+ * `onPick` hears the chosen series once the box has emptied and closed; it decides where focus goes.
  */
 export function createSearchBox(
   input: HTMLInputElement,
@@ -60,6 +60,9 @@ export function createSearchBox(
     );
     if (results.length === 0) {
       const none = document.createElement("li");
+      none.setAttribute("role", "option");
+      none.setAttribute("aria-disabled", "true");
+      none.setAttribute("aria-selected", "false");
       none.className = "soft";
       none.textContent = "No series by that name";
       list.append(none);
@@ -74,13 +77,14 @@ export function createSearchBox(
     if (!meta) return;
     input.value = "";
     close();
-    input.blur();
     onPick(meta);
   };
 
   input.addEventListener("focus", render);
   input.addEventListener("input", render);
   input.addEventListener("keydown", (event) => {
+    // Enter and the arrows belong to the input method while it is composing.
+    if (event.isComposing) return;
     if (event.key === "Escape") {
       if (list.hidden) input.value = "";
       close();
@@ -98,7 +102,7 @@ export function createSearchBox(
   // Pressing an option must not blur the input first, or the list closes before the click lands.
   list.addEventListener("pointerdown", (event) => event.preventDefault());
   list.addEventListener("click", (event) => {
-    const item = (event.target as Element).closest("li[role=option]");
+    const item = (event.target as Element).closest("li[role=option]:not([aria-disabled])");
     if (item) pick(results[[...list.children].indexOf(item)]);
   });
   input.addEventListener("blur", close);

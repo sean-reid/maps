@@ -4,7 +4,8 @@ const words = (text: string): string[] =>
   text
     .toLowerCase()
     .normalize("NFKD")
-    .replace(/[^a-z0-9$%]+/g, " ")
+    .replace(/\p{M}+/gu, "")
+    .replace(/[^\p{L}\p{N}$%]+/gu, " ")
     .split(" ")
     .filter(Boolean);
 
@@ -40,11 +41,13 @@ function scoreWord(query: string, item: Searchable): number {
 /**
  * Series matching every word of `query`, best first. A word matches a title word it equals,
  * starts, or (from three letters) sits inside, or the start of a unit or source word.
- * An empty query lists the broadest series.
+ * Order: how well the words match, then how much of the title they account for, then the
+ * breadth of the series, then slug. An empty query lists the broadest series.
  */
 export function search(index: Searchable[], query: string, limit = 30): SeriesMeta[] {
   const asked = words(query);
-  const scored: { item: Searchable; score: number }[] = [];
+  if (asked.length === 0 && query.trim() !== "") return [];
+  const scored: { item: Searchable; score: number; cover: number }[] = [];
   for (const item of index) {
     let score = 0;
     let all = true;
@@ -57,13 +60,16 @@ export function search(index: Searchable[], query: string, limit = 30): SeriesMe
       score += s;
     }
     if (!all) continue;
-    // Short titles are closer to what was typed than long ones that merely contain it.
-    score = asked.length ? score / asked.length - item.title.length / 20 : 0;
-    scored.push({ item, score });
+    scored.push({
+      item,
+      score: asked.length ? score / asked.length : 0,
+      cover: asked.length ? Math.min(1, asked.length / item.title.length) : 0,
+    });
   }
   scored.sort(
     (a, b) =>
       b.score - a.score ||
+      b.cover - a.cover ||
       b.item.weight - a.item.weight ||
       a.item.meta.slug.localeCompare(b.item.meta.slug),
   );

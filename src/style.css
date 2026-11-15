@@ -172,12 +172,12 @@ header {
   border-bottom: 1px solid var(--rule);
 }
 
-#results li[role="option"] {
+#results li:not([aria-disabled]) {
   cursor: pointer;
 }
 
 #results li[aria-selected="true"],
-#results li[role="option"]:hover {
+#results li:not([aria-disabled]):hover {
   background: var(--shade);
 }
 

@@ -56,3 +56,26 @@ test("an empty query lists the broadest series, up to the limit", () => {
   expect(slugs("")).toHaveLength(9);
   expect(slugs("").at(-1)).toBe("few");
 });
+
+test("match quality comes first, then how much of the title was typed, then breadth", () => {
+  const ranked = prepare([
+    s("long", "Forest area lost to fire in protected zones", "", 210),
+    s("short-narrow", "Forest area", "", 80),
+    s("short-broad", "Forest cover", "", 215),
+    s("prefix", "Forestry output", "", 216),
+  ]);
+  expect(search(ranked, "forest").map((m) => m.slug)).toEqual([
+    "short-broad",
+    "short-narrow",
+    "long",
+    "prefix",
+  ]);
+});
+
+test("punctuation alone matches nothing, and other scripts are searchable", () => {
+  expect(slugs("-")).toEqual([]);
+  expect(slugs("  ")).toHaveLength(9);
+  const other = prepare([s("ru", "Население, всего"), s("zh", "人口 总数")]);
+  expect(search(other, "насел").map((m) => m.slug)).toEqual(["ru"]);
+  expect(search(other, "人口").map((m) => m.slug)).toEqual(["zh"]);
+});
