@@ -26,6 +26,7 @@ export class SolverClient {
       }
     };
     this.worker.onerror = (event) => {
+      this.dead = true;
       this.failed?.(event.message || "the solver stopped");
       const stuck = [...this.waiting.values()];
       this.waiting.clear();
@@ -46,6 +47,10 @@ export class SolverClient {
    * One solve runs at a time; of those asked for meanwhile, only the newest is sent.
    */
   solve(values: Float64Array, warm: boolean): Promise<Float64Array | undefined> {
+    if (this.dead) {
+      this.failed?.("the solver stopped");
+      return Promise.resolve(undefined);
+    }
     return new Promise((done) => {
       this.queued?.done(undefined);
       this.queued = { values, warm, done };
@@ -60,11 +65,19 @@ export class SolverClient {
     });
   }
 
+  /** Set when the worker itself fails; nothing sent to it would be answered. */
+  private dead = false;
+
   private queued:
     | { values: Float64Array; warm: boolean; done: (points: Float64Array | undefined) => void }
     | undefined;
 
   private pump(): void {
+    if (this.dead) {
+      this.queued?.done(undefined);
+      this.queued = undefined;
+      return;
+    }
     if (this.waiting.size > 0 || !this.queued) return;
     const { values, warm, done } = this.queued;
     this.queued = undefined;

@@ -83,7 +83,13 @@ async function start(): Promise<void> {
 
   const catalogue = await loadCatalogue();
   if (!catalogue) return;
-  const solver = new SolverClient(geo, (message) => console.error(message));
+  // Assigned once playback exists, so a solver failure can stop it.
+  let halt = (): void => undefined;
+  const solver = new SolverClient(geo, (message) => {
+    console.error(message);
+    halt();
+    readout.textContent = "The map stopped responding. Reload the page to carry on.";
+  });
   const asked = parsePath(location.pathname);
   const linked = catalogue.series.find((s: SeriesMeta) => s.slug === asked.slug);
   const meta = linked ?? catalogue.series.find((s: SeriesMeta) => s.slug === OPENING);
@@ -146,6 +152,8 @@ async function start(): Promise<void> {
     }
     if (mine === run) stop();
   };
+
+  halt = stop;
 
   playButton.addEventListener("click", () => {
     if (playing) stop();
