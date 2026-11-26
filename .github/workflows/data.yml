@@ -36,7 +36,7 @@ jobs:
       - name: wait for the site to serve the new version
         run: |
           for try in $(seq 1 18); do
-            if curl -fsS -D - -o /dev/null https://maps.dwainosaur.com/api/index | tr -d '\r' | grep -ix "x-data-version: $VERSION" > /dev/null; then
+            if curl -fsS -D - -o /dev/null https://maps.seanre.id/api/index | tr -d '\r' | grep -ix "x-data-version: $VERSION" > /dev/null; then
               exit 0
             fi
             sleep 10
