@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/sean-reid/maps/compare/maps-v0.1.0...maps-v0.2.0) (2026-11-26)
+
+
+### Features
+
+* serve the site from maps.seanre.id ([#27](https://github.com/sean-reid/maps/issues/27)) ([16536dd](https://github.com/sean-reid/maps/commit/16536dd08974fea2535dfa706648598680795ebe))
+
 ## 0.1.0 (2026-11-15)
 
 

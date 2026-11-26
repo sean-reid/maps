@@ -1,6 +1,6 @@
 {
   "name": "maps",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "description": "A world map where each country's area is the quantity being shown.",
