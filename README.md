@@ -1,6 +1,6 @@
 # maps
 
-A world map at [maps.dwainosaur.com](https://maps.dwainosaur.com) where each country's area is the quantity being shown: people, tonnes of wheat, tonnes of CO2. Pick a series and the borders stretch and squash to fit it while every country keeps its neighbours. Play the years and the areas grow and shrink.
+A world map at [maps.seanre.id](https://maps.seanre.id) where each country's area is the quantity being shown: people, tonnes of wheat, tonnes of CO2. Pick a series and the borders stretch and squash to fit it while every country keeps its neighbours. Play the years and the areas grow and shrink.
 
 ## Development
 

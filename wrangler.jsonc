@@ -12,6 +12,6 @@
   "observability": { "enabled": true },
   "workers_dev": true,
   "preview_urls": true,
-  "routes": [{ "pattern": "maps.dwainosaur.com", "custom_domain": true }],
+  "routes": [{ "pattern": "maps.seanre.id", "custom_domain": true }],
   "r2_buckets": [{ "binding": "DATA", "bucket_name": "maps" }],
 }
